@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FcBusinessman } from "react-icons/fc";
 
 export default function LoginPage() {
 	const [cpf, setCpf] = useState("");
@@ -49,77 +49,73 @@ export default function LoginPage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-[#17182b] flex flex-col items-center justify-center p-6">
-			<header className="text-center mb-8">
-				<div className="w-48 h-20 flex items-center justify-center">
-					<img src="/logo.png" alt="Suits" className="max-h-full object-contain" />
+		<div className="min-h-screen bg-[#17182b] flex flex-col items-center justify-center px-6 py-10 text-white">
+			<header className="relative z-10 mb-10 text-center">
+				<div className="mx-auto mb-6 h-auto w-full max-w-sm">
+					<Image src="/logo.png" alt="Suits" width={220} height={60} className="mx-auto object-contain" />
+				</div>
+				<div className="space-y-2">
+					<h1 className="text-3xl font-semibold tracking-tight text-white">Bem-vindo ao Suits</h1>
+					<p className="text-sm text-slate-300">Entre com seu CPF para acessar o painel e gerenciar suas operações.</p>
 				</div>
 			</header>
 
-			<main className="w-full max-w-md">
-				<div className="rounded-lg overflow-hidden shadow-xl">
-					<div className="bg-[#232935] text-white py-6 px-6 text-center">
-						<div className="flex flex-col items-center">
-							<div className=" rounded-full p-3 mb-2">
-								<FcBusinessman size={34} />
-							</div>
-							<h2 className="font-semibold text-lg">Login</h2>
-							<p className="text-xs text-white/70">Acesse sua área de trabalho</p>
-						</div>
+			<main className="relative z-10 w-full max-w-md">
+				<div className="overflow-hidden rounded-[32px] border border-white/10 bg-[#141a2c]/90 shadow-[0_25px_80px_rgba(0,0,0,0.35)]">
+					<div className="bg-gradient-to-r from-blue-700 via-slate-900 to-[#17182b] px-8 py-8 text-center text-white">
+						<h2 className="text-2xl font-semibold">Login</h2>
+						<p className="mt-2 text-sm text-slate-200/80">Segurança e praticidade em um só lugar.</p>
 					</div>
 
-					<form className="bg-white p-6" onSubmit={handleSubmit}>
-						<label className="text-xs text-gray-500 uppercase">CPF</label>
-						<div className="mt-1 mb-4">
+					<form className="space-y-5 px-8 py-8 bg-[#101523]" onSubmit={handleSubmit}>
+						<div>
+							<label className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">CPF</label>
 							<input
 								value={cpf}
 								onChange={(e) => handleCpfChange(e.target.value)}
 								placeholder="000.000.000-00"
-								className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#232935]"
+								className="mt-3 w-full rounded-3xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white shadow-inner shadow-black/10 outline-none transition duration-200 focus:border-blue-400 focus:bg-white/10 focus:ring-2 focus:ring-blue-500/20"
 							/>
 						</div>
 
-						<label className="text-xs text-gray-500 uppercase">Senha</label>
-						<div className="mt-1 mb-3 relative">
+						<div>
+							<div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+								<span>Senha</span>
+								<button
+									type="button"
+									onClick={() => setShowPassword((s) => !s)}
+									className="text-slate-300 transition hover:text-blue-300"
+								>
+									{showPassword ? "Ocultar" : "Mostrar"}
+								</button>
+							</div>
 							<input
 								type={showPassword ? "text" : "password"}
 								value={password}
 								onChange={(e) => setPassword(e.target.value)}
-								placeholder="*******"
-								className="w-full border border-gray-200 rounded px-3 py-2 text-sm pr-10 focus:outline-none focus:ring-1 focus:ring-[#232935]"
+								placeholder="••••••••"
+								className="mt-3 w-full rounded-3xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white shadow-inner shadow-black/10 outline-none transition duration-200 focus:border-blue-400 focus:bg-white/10 focus:ring-2 focus:ring-blue-500/20"
 							/>
-							<button
-								type="button"
-								onClick={() => setShowPassword((s) => !s)}
-								className="absolute right-2 top-2 text-gray-500"
-								aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-							>
-								{showPassword ? (
-									<span></span>
-								) : (
-									<span></span>
-								)}
-							</button>
 						</div>
 
-						<div className="flex items-center justify-between text-sm mb-4">
-							<label className="flex items-center gap-2">
+						<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-slate-300">
+							<label className="inline-flex items-center gap-2">
 								<input
 									type="checkbox"
 									checked={remember}
 									onChange={(e) => setRemember(e.target.checked)}
-									className="h-4 w-4"
+									className="h-4 w-4 rounded border-white/20 bg-slate-900 text-blue-500 focus:ring-blue-400"
 								/>
-								<span className="text-sm text-gray-600">Lembrar-me</span>
+								<span>Lembrar-me</span>
 							</label>
-							<Link href="#" className="text-xs text-blue-500">
+							<Link href="#" className="text-blue-300 transition hover:text-blue-100">
 								Esqueci minha senha
 							</Link>
 						</div>
 
 						<button
 							type="submit"
-							className="w-full bg-[#0f1724] text-white py-2 rounded hover:opacity-95 disabled:opacity-50"
+							className="mt-1 w-full rounded-3xl bg-blue-600 px-4 py-3 text-sm font-semibold uppercase tracking-[0.1em] text-white transition duration-200 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400/60"
 						>
 							Entrar
 						</button>
