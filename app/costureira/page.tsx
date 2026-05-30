@@ -1,9 +1,7 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
-import { FiUser, FiClock, FiCheckCircle, FiSearch, FiFilter } from "react-icons/fi";
-import { FiBriefcase, FiScissors, FiBarChart, FiRotateCcw, FiSettings, FiBell } from "react-icons/fi";
+import { FiUser, FiSearch, FiFilter } from "react-icons/fi";
 import Sidebar from "../components/Sidebar";
 
 const tasks = [
@@ -14,38 +12,51 @@ const tasks = [
 ];
 
 function SmallStat({ label, value }: { label: string; value: string | number }) {
+  const valueColor = label === "Total Atribuído"
+    ? "text-emerald-600"
+    : label === "Aguardando"
+    ? "text-orange-600"
+    : label === "Em execução"
+    ? "text-amber-600"
+    : label === "Finalizados (Hoje)"
+    ? "text-slate-500"
+    : "text-[#17182b]";
+  const labelColor = label === "Aguardando"
+    ? "text-orange-600"
+    : label === "Em execução"
+    ? "text-amber-600"
+    : label === "Finalizados (Hoje)"
+    ? "text-slate-500"
+    : "text-slate-500";
   return (
-    <div className="bg-white rounded-md p-4 shadow-sm flex items-center justify-between">
-      <div>
-        <div className="text-sm text-gray-500">{label}</div>
-        <div className="text-2xl font-semibold text-[var(--suit-navy)]">{value}</div>
-      </div>
-      <div className="text-2xl text-gray-400">●</div>
+    <div className="bg-white rounded-[24px] p-5 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
+      <div className={`text-sm uppercase tracking-[0.18em] mb-3 ${labelColor}`}>{label}</div>
+      <div className={`text-3xl font-semibold ${valueColor}`}>{value}</div>
     </div>
   );
 }
 
 function TaskCard({ t, actionLabel }: { t: (typeof tasks)[0]; actionLabel: string }) {
-  const accent = t.status === "Aguardando" ? "border-l-4 border-green-200" : t.status === "Em execução" ? "border-l-4 border-yellow-200" : "border-l-4 border-gray-200";
+  const accent = t.status === "Aguardando" ? "border-l-4 border-orange-300" : t.status === "Em execução" ? "border-l-4 border-amber-300" : "border-l-4 border-slate-300";
+  const statusTextClass = t.status === "Aguardando" ? "text-orange-600" : t.status === "Em execução" ? "text-amber-600" : "text-slate-500";
   return (
-    <div className={`bg-white rounded-md border border-gray-100 p-4 shadow-sm mb-4 ${accent}`}>
-      <div className="flex justify-between items-start gap-4">
+    <div className={`bg-white rounded-[28px] border border-slate-200 p-5 shadow-[0_20px_40px_rgba(15,23,42,0.08)] ${accent}`}>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex-1">
-          <div className="flex items-center justify-between">
-            <div className="text-xs text-gray-400">{t.id}</div>
-            <div className="text-xs text-gray-500">{t.when}</div>
+          <div className="flex items-center justify-between text-xs text-slate-400">
+            <span>{t.id}</span>
+            <span>{t.when}</span>
           </div>
-          <div className="font-medium text-[var(--suit-navy)] mt-1">{t.title}</div>
-          <div className="text-sm text-gray-600 mt-2">{t.note}</div>
-          <div className="flex items-center gap-3 mt-3 text-sm text-gray-500">
-            <div className="flex items-center gap-2">
-              <span className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100"><FiUser className="text-gray-500" /></span>
-              {t.who}
-            </div>
+          <div className="mt-3 text-lg font-semibold text-[#17182b]">{t.title}</div>
+          <div className="text-sm text-slate-600 mt-2">{t.note}</div>
+          <div className="mt-4 flex items-center gap-2 text-sm text-slate-500">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500"><FiUser /></span>
+            {t.who}
           </div>
+          <div className={`mt-4 inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${statusTextClass} border-current`}>{t.status}</div>
         </div>
-        <div className="ml-4 flex flex-col items-end gap-2">
-          <button className="bg-[var(--suit-navy)] text-[var(--suit-gold)] px-3 py-1 rounded text-sm">{actionLabel}</button>
+        <div className="flex items-center justify-end">
+          <button className="rounded-2xl bg-[#17182b] px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-900">{actionLabel}</button>
         </div>
       </div>
     </div>
@@ -58,26 +69,28 @@ export default function CostureiraPage() {
   const finalizado = tasks.filter((x) => x.status === "Finalizado");
 
   return (
-    <div className="min-h-screen flex bg-[var(--background)] font-sans">
+    <div className="min-h-screen flex bg-[#F3F5F8] font-sans">
       <Sidebar active="Costureira" />
 
-      <main className="flex-1 p-8">
-        <header className="flex items-center justify-between mb-6 bg-[var(--suit-navy)] p-6 text-white rounded-md">
-          <div>
-            <h1 className="text-4xl font-serif">Gestão de Demandas</h1>
-            <p className="text-sm text-white/80 mt-1">Acompanhe e gerencie os ajustes de alfaiataria em andamento</p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-white rounded-md px-3 py-2 shadow-sm">
-              <FiSearch className="text-gray-400 mr-2" />
-              <input placeholder="Buscar pedido ou cliente" className="outline-none text-sm" />
+      <main className="flex-1 p-10">
+        <header className="mb-8 rounded-[32px] bg-[#17182b] p-8 shadow-[0_30px_90px_rgba(23,24,43,0.14)] text-white">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h1 className="text-4xl font-serif font-semibold">Gestão de Demandas</h1>
+              <p className="mt-2 max-w-2xl text-sm text-slate-200">Acompanhe e gerencie os ajustes de alfaiataria em andamento com clareza e fluidez.</p>
             </div>
-            <button className="flex items-center gap-2 bg-white/10 text-white px-4 py-2 rounded-md border border-white/10"><FiFilter /> Filtrar</button>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-[0_10px_25px_rgba(15,23,42,0.08)]">
+                <FiSearch className="text-slate-400" />
+                <input placeholder="Buscar pedido ou cliente" className="w-full bg-transparent text-sm text-[#17182b] outline-none" />
+              </div>
+              <button className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#17182b] shadow-[0_10px_25px_rgba(15,23,42,0.08)] transition hover:bg-slate-100"><FiFilter /> Filtrar</button>
+            </div>
           </div>
         </header>
 
-        <div className="grid grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-1 gap-6 mb-6 xl:grid-cols-4">
           <SmallStat label="Total Atribuído" value={2} />
           <SmallStat label="Aguardando" value={2} />
           <SmallStat label="Em execução" value={1} />
@@ -87,8 +100,8 @@ export default function CostureiraPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="flex flex-col bg-white rounded-md p-4 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium">Aguardando</h3>
-              <div className="text-sm text-gray-500">{aguardando.length}</div>
+              <h3 className="font-medium text-orange-600">Aguardando</h3>
+              <div className="text-sm text-orange-600">{aguardando.length}</div>
             </div>
             <div className="flex-1 space-y-4 overflow-y-auto max-h-[65vh]">
               {aguardando.map((t) => (
@@ -99,8 +112,8 @@ export default function CostureiraPage() {
 
           <div className="flex flex-col bg-white rounded-md p-4 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium">Em execução</h3>
-              <div className="text-sm text-gray-500">{execucao.length}</div>
+              <h3 className="font-medium text-amber-600">Em execução</h3>
+              <div className="text-sm text-amber-600">{execucao.length}</div>
             </div>
             <div className="flex-1 space-y-4 overflow-y-auto max-h-[65vh]">
               {execucao.map((t) => (
@@ -111,8 +124,8 @@ export default function CostureiraPage() {
 
           <div className="flex flex-col bg-white rounded-md p-4 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium">Finalizado</h3>
-              <div className="text-sm text-gray-500">{finalizado.length}</div>
+              <h3 className="font-medium text-slate-500">Finalizado</h3>
+              <div className="text-sm text-slate-500">{finalizado.length}</div>
             </div>
             <div className="flex-1 space-y-4 overflow-y-auto max-h-[65vh]">
               {finalizado.map((t) => (

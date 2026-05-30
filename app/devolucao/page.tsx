@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Image from "next/image";
-import { FiSearch, FiFilter, FiCheckCircle, FiClock, FiAlertTriangle, FiUser } from "react-icons/fi";
+import { FiSearch, FiFilter, FiUser } from "react-icons/fi";
 import Sidebar from "../components/Sidebar";
 
 const sample = [
@@ -12,128 +11,156 @@ const sample = [
 ];
 
 function StatCard({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
+  const labelColor =
+    label === "Aguardando"
+      ? "text-orange-600"
+      : label === "Atrasados"
+      ? "text-red-600"
+      : label === "Finalizados (Hoje)"
+      ? "text-slate-500"
+      : label === "Total Atribuído"
+      ? "text-emerald-600"
+      : "text-slate-500";
+
   return (
-    <div className="bg-[var(--suit-surface)] rounded-md p-4 shadow-sm">
-      <div className="text-sm text-gray-500">{label}</div>
-      <div className="text-2xl font-semibold text-[var(--suit-navy)]">{value}</div>
-      {hint ? <div className="text-xs text-gray-400 mt-1">{hint}</div> : null}
+    <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
+      <div className={`text-sm uppercase tracking-[0.2em] ${labelColor} mb-3`}>{label}</div>
+      <div className={`text-3xl font-semibold ${labelColor}`}>{value}</div>
+      {hint ? <div className="text-xs text-slate-400 mt-2">{hint}</div> : null}
     </div>
   );
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    Aguardando: "text-[var(--suit-gold)]",
-    Atrasado: "text-red-500",
-    Devolvido: "text-green-500",
+  const statusStyles: Record<string, string> = {
+    Aguardando: "bg-amber-100 text-amber-700 border border-amber-200",
+    Atrasado: "bg-red-100 text-red-700 border border-red-200",
+    Devolvido: "bg-emerald-100 text-emerald-700 border border-emerald-200",
   };
-  return <div className={`text-sm font-medium ${map[status] || "text-gray-500"}`}>{status}</div>;
+
+  return (
+    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[status] || "bg-slate-100 text-slate-700 border border-slate-200"}`}>
+      {status}
+    </span>
+  );
 }
 
 export default function DevolucaoPage() {
   const [tab, setTab] = useState("Todas");
 
   return (
-    <div className="min-h-screen flex bg-[var(--background)] font-sans">
+    <div className="min-h-screen flex bg-[#F3F5F8] font-sans">
       <Sidebar active="Devolução" />
 
       <main className="flex-1 p-10">
-        <header className="flex items-center justify-between mb-6 bg-[var(--suit-navy)] p-6 text-white rounded-md">
-          <div>
-            <h1 className="text-4xl font-serif">Gestão de Devoluções</h1>
-            <p className="text-sm text-white/80 mt-1">Acompanhe e gerencie as devoluções em andamento</p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-white rounded-md px-3 py-2 shadow-sm border border-gray-200">
-              <FiSearch className="text-[var(--suit-navy)] mr-2" />
-              <input placeholder="Buscar pedido ou cliente" className="outline-none text-sm text-[var(--suit-navy)] placeholder-gray-400" />
+        <header className="mb-8 rounded-[32px] bg-[#17182b] p-8 shadow-[0_30px_90px_rgba(23,24,43,0.14)] text-white">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h1 className="text-4xl font-serif font-semibold">Gestão de Devoluções</h1>
+              <p className="mt-2 max-w-2xl text-sm text-slate-200">Acompanhe e gerencie devoluções, multas e itens em atraso com clareza e controle.</p>
             </div>
-            <button className="flex items-center gap-2 bg-white px-4 py-2 rounded-md border shadow-sm text-[var(--suit-navy)]"><FiFilter /> Filtrar</button>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-[0_10px_25px_rgba(15,23,42,0.08)]">
+                <FiSearch className="text-slate-400" />
+                <input placeholder="Buscar pedido ou cliente" className="w-full bg-transparent text-sm text-[#17182b] outline-none" />
+              </div>
+              <button className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#17182b] shadow-[0_10px_25px_rgba(15,23,42,0.08)] transition hover:bg-slate-100">
+                <FiFilter /> Filtrar
+              </button>
+            </div>
           </div>
         </header>
 
-        <div className="grid grid-cols-4 gap-6 mb-6">
-          <StatCard label="Devoluções Hoje" value={1} hint="110% vs ontem" />
-          <StatCard label="Atrasados" value={2} hint="12 novos hoje" />
-          <StatCard label="Itens Danificados" value={3} hint="Requer atenção" />
-          <StatCard label="Taxas de multas" value={`R$ 120`} hint={`5% vs mês passado`} />
+        <div className="grid grid-cols-1 gap-6 mb-6 xl:grid-cols-4">
+          <StatCard label="Total Atribuído" value={1} hint="+8% em relação a ontem" />
+          <StatCard label="Aguardando" value={1} hint="1 pendente" />
+          <StatCard label="Atrasados" value={2} hint="Itens com multa" />
+          <StatCard label="Finalizados (Hoje)" value={1} hint="Entrega concluída" />
         </div>
 
-        <div className="bg-[var(--suit-surface)] p-4 rounded-md mb-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <nav className="flex gap-6 items-center">
-              {['Todas','Pendentes','Atrasadas','Concluídas'].map((t) => (
-                <button key={t} onClick={() => setTab(t)} className={`pb-2 ${tab===t? 'text-[var(--suit-navy)] border-b-2 border-[var(--suit-gold)]' : 'text-gray-500'}`}>
+        <div className="bg-white rounded-[28px] p-5 shadow-[0_20px_40px_rgba(15,23,42,0.08)] mb-8">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <nav className="flex flex-wrap gap-3">
+              {['Todas', 'Pendentes', 'Atrasadas', 'Concluídas'].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${tab === t ? 'bg-[#17182b] text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
                   {t}
                 </button>
               ))}
             </nav>
-            <div className="flex items-center gap-3">
-              <button className="px-3 py-2 bg-[var(--suit-surface)] border rounded-md text-sm">12 Mai - 19 Mai</button>
-              <button className="px-3 py-2 bg-white border rounded-md text-sm"><FiFilter /> Filtros</button>
+
+            <div className="flex flex-wrap gap-3">
+              <button className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100">12 Mai - 19 Mai</button>
+              <button className="inline-flex items-center gap-2 rounded-2xl bg-[#17182b] px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-900">
+                <FiFilter /> Filtros
+              </button>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-md shadow-sm overflow-hidden">
-          <table className="min-w-full table-fixed">
-            <thead className="bg-[var(--suit-surface)]">
-              <tr>
-                <th className="p-4 w-12"><input type="checkbox" /></th>
-                <th className="p-4 text-left">Pedido/Cliente</th>
-                <th className="p-4 text-left">Itens</th>
-                <th className="p-4 text-left">Data Prevista</th>
-                <th className="p-4 text-left">Status</th>
-                <th className="p-4 text-left">Multas/Avarias</th>
-                <th className="p-4 text-left">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sample.map((s) => (
-                <tr key={s.order} className="border-t">
-                  <td className="p-4"><input type="checkbox" /></td>
-                  <td className="p-4 align-top">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"><FiUser className="text-gray-400" /></div>
-                      <div>
-                        <div className="text-xs text-gray-400">{s.order}</div>
-                        <div className="font-medium text-[var(--suit-navy)]">{s.client}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-4 align-top">
-                    <div className="text-xs text-gray-400">{s.itemId}</div>
-                    <div className="text-sm">{s.item}</div>
-                  </td>
-                  <td className="p-4 align-top">
-                    <div className="font-medium">{s.dateLabel}</div>
-                    {s.dateNote ? <div className="text-xs text-red-500">{s.dateNote}</div> : null}
-                  </td>
-                  <td className="p-4 align-top"><StatusBadge status={s.status} /></td>
-                  <td className="p-4 align-top"><div className="text-sm text-gray-600">{s.penalty}</div></td>
-                  <td className="p-4 align-top">
-                    {s.action === 'Confirmar' ? (
-                      <button className="px-3 py-2 bg-[var(--suit-navy)] text-[var(--suit-gold)] rounded-md">Confirmar</button>
-                    ) : (
-                      <button className="px-3 py-2 bg-gray-100 rounded-md text-sm" disabled>Entregue</button>
-                    )}
-                  </td>
+        <div className="overflow-hidden rounded-[32px] bg-white shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left">
+              <thead className="bg-slate-50 text-slate-500 text-sm uppercase tracking-[0.15em]">
+                <tr>
+                  <th className="px-6 py-4 w-12"><input type="checkbox" /></th>
+                  <th className="px-6 py-4">Pedido/Cliente</th>
+                  <th className="px-6 py-4">Itens</th>
+                  <th className="px-6 py-4">Data Prevista</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Multas/Avarias</th>
+                  <th className="px-6 py-4">Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {sample.map((s) => (
+                  <tr key={s.order} className="border-t last:border-b">
+                    <td className="px-6 py-5 align-top"><input type="checkbox" className="h-4 w-4 text-[#17182b]" /></td>
+                    <td className="px-6 py-5 align-top">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"><FiUser /></div>
+                        <div>
+                          <div className="text-xs text-slate-400">{s.order}</div>
+                          <div className="font-semibold text-[#17182b]">{s.client}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 align-top">
+                      <div className="text-xs text-slate-400">{s.itemId}</div>
+                      <div className="text-sm text-slate-700">{s.item}</div>
+                    </td>
+                    <td className="px-6 py-5 align-top">
+                      <div className="font-medium text-slate-700">{s.dateLabel}</div>
+                      {s.dateNote ? <div className="text-xs text-red-500 mt-1">{s.dateNote}</div> : null}
+                    </td>
+                    <td className="px-6 py-5 align-top"><StatusBadge status={s.status} /></td>
+                    <td className="px-6 py-5 align-top"><div className="text-sm text-slate-600">{s.penalty}</div></td>
+                    <td className="px-6 py-5 align-top">
+                      {s.action === "Confirmar" ? (
+                        <button className="rounded-2xl bg-[#17182b] px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-900">{s.action}</button>
+                      ) : (
+                        <button className="rounded-2xl border border-slate-200 bg-slate-100 px-4 py-2 text-sm text-slate-600" disabled>{s.action}</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-          <div className="p-4 flex items-center justify-between">
-            <div className="text-sm text-gray-500">Mostrando 1 a 10 de 20 devoluções</div>
+          <div className="flex flex-col gap-4 items-center justify-between border-t border-slate-200 p-5 sm:flex-row">
+            <div className="text-sm text-slate-500">Mostrando 1 a 10 de 20 devoluções</div>
             <div className="flex items-center gap-2">
-              <button className="p-2">◀</button>
-              <div className="flex gap-1">
-                <button className="w-8 h-8 bg-[var(--suit-navy)] text-white rounded">1</button>
-                <button className="w-8 h-8 rounded border">2</button>
-                <button className="w-8 h-8 rounded border">3</button>
+              <button className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100">◀</button>
+              <div className="flex gap-2">
+                <button className="w-10 rounded-2xl bg-[#17182b] px-2 py-2 text-sm font-semibold text-white">1</button>
+                <button className="w-10 rounded-2xl border border-slate-200 bg-white px-2 py-2 text-sm text-slate-600">2</button>
+                <button className="w-10 rounded-2xl border border-slate-200 bg-white px-2 py-2 text-sm text-slate-600">3</button>
               </div>
-              <button className="p-2">▶</button>
+              <button className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100">▶</button>
             </div>
           </div>
         </div>

@@ -45,7 +45,7 @@ export default function LoginPage() {
 	function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
 		console.log({ cpf, password, remember });
-		router.push("/inventory");
+		router.push("/dashboard");
 	}
 
 	return (
