@@ -27,7 +27,12 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col text-lg">{children}</body>
+      <body className="min-h-full flex flex-col text-lg overflow-x-hidden">
+        <div className="pointer-events-none fixed right-4 top-4 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-white/20 bg-white/90 shadow-lg md:hidden">
+          <img src="/logo.png" alt="Suits" className="h-8 w-auto object-contain" />
+        </div>
+        {children}
+      </body>
     </html>
   );
 }

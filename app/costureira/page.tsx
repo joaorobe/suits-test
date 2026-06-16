@@ -119,43 +119,56 @@ export default function CostureiraPage() {
           <SmallStat label="Finalizados (Hoje)" value={loading ? "..." : finalizado.length} />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="flex flex-col bg-white rounded-md p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-orange-600">Aguardando</h3>
-              <div className="text-sm text-orange-600">{aguardando.length}</div>
-            </div>
-            <div className="flex-1 space-y-4 overflow-y-auto max-h-[65vh]">
-              {(loading ? Array(2).fill(null) as (TailorTask | null)[] : aguardando).map((t, index) =>
-                t ? <TaskCard key={t.id} t={t} actionLabel="Iniciar" onAction={() => handleAction(t)} /> : <div key={index} className="h-40 rounded-[28px] bg-slate-100" />
-              )}
-            </div>
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {Array(3).fill(null).map((_, index) => (
+              <div key={index} className="h-[32rem] rounded-[28px] bg-slate-100" />
+            ))}
           </div>
+        ) : tasks.length === 0 ? (
+          <div className="rounded-[28px] border border-dashed border-slate-200 bg-white px-8 py-12 text-center text-slate-500 shadow-sm">
+            <p className="text-xl font-semibold">Nenhuma tarefa encontrada.</p>
+            <p className="mt-2 text-sm">Quando houver demandas na API, elas aparecerão aqui.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="flex flex-col bg-white rounded-md p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-medium text-orange-600">Aguardando</h3>
+                <div className="text-sm text-orange-600">{aguardando.length}</div>
+              </div>
+              <div className="flex-1 space-y-4 overflow-y-auto max-h-[65vh]">
+                {aguardando.map((t) => (
+                  <TaskCard key={t.id} t={t} actionLabel="Iniciar" onAction={() => handleAction(t)} />
+                ))}
+              </div>
+            </div>
 
-          <div className="flex flex-col bg-white rounded-md p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-amber-600">Em execução</h3>
-              <div className="text-sm text-amber-600">{execucao.length}</div>
+            <div className="flex flex-col bg-white rounded-md p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-medium text-amber-600">Em execução</h3>
+                <div className="text-sm text-amber-600">{execucao.length}</div>
+              </div>
+              <div className="flex-1 space-y-4 overflow-y-auto max-h-[65vh]">
+                {execucao.map((t) => (
+                  <TaskCard key={t.id} t={t} actionLabel="Concluir" onAction={() => handleAction(t)} />
+                ))}
+              </div>
             </div>
-            <div className="flex-1 space-y-4 overflow-y-auto max-h-[65vh]">
-              {(loading ? Array(1).fill(null) as (TailorTask | null)[] : execucao).map((t, index) =>
-                t ? <TaskCard key={t.id} t={t} actionLabel="Concluir" onAction={() => handleAction(t)} /> : <div key={index} className="h-40 rounded-[28px] bg-slate-100" />
-              )}
-            </div>
-          </div>
 
-          <div className="flex flex-col bg-white rounded-md p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-slate-500">Finalizado</h3>
-              <div className="text-sm text-slate-500">{finalizado.length}</div>
-            </div>
-            <div className="flex-1 space-y-4 overflow-y-auto max-h-[65vh]">
-              {(loading ? Array(1).fill(null) as (TailorTask | null)[] : finalizado).map((t, index) =>
-                t ? <TaskCard key={t.id} t={t} actionLabel="Ver detalhes" onAction={() => {}} /> : <div key={index} className="h-40 rounded-[28px] bg-slate-100" />
-              )}
+            <div className="flex flex-col bg-white rounded-md p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-medium text-slate-500">Finalizado</h3>
+                <div className="text-sm text-slate-500">{finalizado.length}</div>
+              </div>
+              <div className="flex-1 space-y-4 overflow-y-auto max-h-[65vh]">
+                {finalizado.map((t) => (
+                  <TaskCard key={t.id} t={t} actionLabel="Ver detalhes" onAction={() => {}} />
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </main>
     </div>
   );

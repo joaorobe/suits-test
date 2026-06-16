@@ -5,7 +5,7 @@ import { FiSearch, FiFilter, FiUser } from "react-icons/fi";
 import Sidebar from "../components/Sidebar";
 import type { ReturnOrder } from "../../lib/types";
 
-function StatCard({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
+function StatCard({ label, value }: { label: string; value: string | number }) {
   const labelColor =
     label === "Aguardando"
       ? "text-orange-600"
@@ -21,7 +21,6 @@ function StatCard({ label, value, hint }: { label: string; value: string | numbe
     <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
       <div className={`text-sm uppercase tracking-[0.2em] ${labelColor} mb-3`}>{label}</div>
       <div className={`text-3xl font-semibold ${labelColor}`}>{value}</div>
-      {hint ? <div className="text-xs text-slate-400 mt-2">{hint}</div> : null}
     </div>
   );
 }
@@ -99,10 +98,10 @@ export default function DevolucaoPage() {
         </header>
 
         <div className="grid grid-cols-1 gap-6 mb-6 xl:grid-cols-4">
-          <StatCard label="Total Atribuído" value={loading ? "..." : orders.length} hint="+8% em relação a ontem" />
-          <StatCard label="Aguardando" value={loading ? "..." : orders.filter((order) => order.status === "Aguardando").length} hint="1 pendente" />
-          <StatCard label="Atrasados" value={loading ? "..." : orders.filter((order) => order.status === "Atrasado").length} hint="Itens com multa" />
-          <StatCard label="Finalizados (Hoje)" value={loading ? "..." : orders.filter((order) => order.status === "Devolvido").length} hint="Entrega concluída" />
+          <StatCard label="Total Atribuído" value={loading ? "..." : orders.length} />
+          <StatCard label="Aguardando" value={loading ? "..." : orders.filter((order) => order.status === "Aguardando").length} />
+          <StatCard label="Atrasados" value={loading ? "..." : orders.filter((order) => order.status === "Atrasado").length} />
+          <StatCard label="Finalizados (Hoje)" value={loading ? "..." : orders.filter((order) => order.status === "Devolvido").length} />
         </div>
 
         <div className="bg-white rounded-[28px] p-5 shadow-[0_20px_40px_rgba(15,23,42,0.08)] mb-8">
@@ -142,41 +141,57 @@ export default function DevolucaoPage() {
                 </tr>
               </thead>
               <tbody>
-                {(loading ? Array(3).fill(null) as (ReturnOrder | null)[] : filteredOrders).map((s, index) => (
-                  <tr key={s?.order ?? index} className="border-t last:border-b">
-                    <td className="px-6 py-5 align-top"><input type="checkbox" className="h-4 w-4 text-[#17182b]" /></td>
-                    <td className="px-6 py-5 align-top">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"><FiUser /></div>
-                        <div>
-                          <div className="text-xs text-slate-400">{s?.order ?? "Carregando"}</div>
-                          <div className="font-semibold text-[#17182b]">{s?.client ?? "..."}</div>
+                  {loading ? (
+                  Array(3).fill(null).map((_, index) => (
+                    <tr key={index} className="border-t last:border-b">
+                      <td className="px-6 py-5 align-top"><div className="h-4 w-4 rounded bg-slate-100" /></td>
+                      <td className="px-6 py-5 align-top"><div className="h-3 w-32 rounded bg-slate-100" /></td>
+                      <td className="px-6 py-5 align-top"><div className="h-3 w-24 rounded bg-slate-100" /></td>
+                      <td className="px-6 py-5 align-top"><div className="h-3 w-20 rounded bg-slate-100" /></td>
+                      <td className="px-6 py-5 align-top"><div className="h-3 w-16 rounded bg-slate-100" /></td>
+                      <td className="px-6 py-5 align-top"><div className="h-3 w-20 rounded bg-slate-100" /></td>
+                      <td className="px-6 py-5 align-top"><div className="h-9 w-24 rounded-2xl bg-slate-100" /></td>
+                    </tr>
+                  ))
+                ) : filteredOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-16 text-center text-slate-500">
+                      Nenhuma devolução encontrada. Quando houver dados na API, eles aparecerão aqui.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredOrders.map((s) => (
+                    <tr key={s.order} className="border-t last:border-b">
+                      <td className="px-6 py-5 align-top"><input type="checkbox" className="h-4 w-4 text-[#17182b]" /></td>
+                      <td className="px-6 py-5 align-top">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"><FiUser /></div>
+                          <div>
+                            <div className="text-xs text-slate-400">{s.order}</div>
+                            <div className="font-semibold text-[#17182b]">{s.client}</div>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 align-top">
-                      <div className="text-xs text-slate-400">{s?.itemId ?? "..."}</div>
-                      <div className="text-sm text-slate-700">{s?.item ?? "..."}</div>
-                    </td>
-                    <td className="px-6 py-5 align-top">
-                      <div className="font-medium text-slate-700">{s?.dueDate ?? "..."}</div>
-                      {s?.returnedDate ? <div className="text-xs text-red-500 mt-1">{s.returnedDate}</div> : null}
-                    </td>
-                    <td className="px-6 py-5 align-top">{s ? <StatusBadge status={s.status} /> : <span className="text-xs text-slate-400">...</span>}</td>
-                    <td className="px-6 py-5 align-top"><div className="text-sm text-slate-600">{s?.penalty ?? "..."}</div></td>
-                    <td className="px-6 py-5 align-top">
-                      {s ? (
-                        s.action === "Confirmar" ? (
+                      </td>
+                      <td className="px-6 py-5 align-top">
+                        <div className="text-xs text-slate-400">{s.itemId}</div>
+                        <div className="text-sm text-slate-700">{s.item}</div>
+                      </td>
+                      <td className="px-6 py-5 align-top">
+                        <div className="font-medium text-slate-700">{s.dueDate}</div>
+                        {s.returnedDate ? <div className="text-xs text-red-500 mt-1">{s.returnedDate}</div> : null}
+                      </td>
+                      <td className="px-6 py-5 align-top"><StatusBadge status={s.status} /></td>
+                      <td className="px-6 py-5 align-top"><div className="text-sm text-slate-600">{s.penalty}</div></td>
+                      <td className="px-6 py-5 align-top">
+                        {s.action === "Confirmar" ? (
                           <button onClick={() => handleConfirm(s)} className="rounded-2xl bg-[#17182b] px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-900">{s.action}</button>
                         ) : (
                           <button className="rounded-2xl border border-slate-200 bg-slate-100 px-4 py-2 text-sm text-slate-600" disabled>{s.action}</button>
-                        )
-                      ) : (
-                        <div className="h-9 w-24 rounded-2xl bg-slate-100" />
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

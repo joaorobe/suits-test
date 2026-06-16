@@ -49,20 +49,34 @@ export default function DashboardPage() {
         </header>
 
         <section className="grid grid-cols-1 gap-6 xl:grid-cols-4 mb-8">
-          {(loading ? Array(4).fill(null) as (DashboardMetric | null)[] : metrics).map((card, index) => (
-            <div key={card?.label ?? index} className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-sm text-slate-500 uppercase tracking-[0.18em]">{card?.label ?? "Carregando"}</div>
-                  <div className={`mt-4 text-4xl font-semibold text-[#17182b]`}>{card?.value ?? "..."}</div>
-                </div>
-                <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-slate-100 text-slate-700">
-                  <FiBriefcase className="text-2xl" />
-                </div>
+          {loading ? (
+            Array(4).fill(null).map((_, index) => (
+              <div key={index} className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
+                <div className="h-6 w-24 rounded bg-slate-200" />
+                <div className="mt-6 h-12 w-32 rounded bg-slate-200" />
+                <div className="mt-4 h-4 w-20 rounded bg-slate-200" />
               </div>
-              <div className="mt-4 text-sm text-slate-500">{card?.detail ?? ""}</div>
+            ))
+          ) : metrics.length === 0 ? (
+            <div className="col-span-1 xl:col-span-4 rounded-[28px] border border-dashed border-slate-200 bg-white p-8 text-center text-slate-500 shadow-sm">
+              Nenhuma métrica disponível no momento.
             </div>
-          ))}
+          ) : (
+            metrics.map((card) => (
+              <div key={card.label} className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-sm text-slate-500 uppercase tracking-[0.18em]">{card.label}</div>
+                    <div className="mt-4 text-4xl font-semibold text-[#17182b]">{card.value}</div>
+                  </div>
+                  <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-slate-100 text-slate-700">
+                    <FiBriefcase className="text-2xl" />
+                  </div>
+                </div>
+                <div className="mt-4 text-sm text-slate-500">{card.detail}</div>
+              </div>
+            ))
+          )}
         </section>
 
         <section className="grid grid-cols-1 gap-6 xl:grid-cols-3 mb-8">
@@ -77,15 +91,31 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              {(loading ? Array(3).fill(null) as (DashboardOverview | null)[] : overview).map((item, index) => (
-                <div key={item?.title ?? index} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                  <div className="text-sm text-slate-500">{item?.title ?? "Carregando"}</div>
-                  <div className="mt-4 text-3xl font-semibold text-[#17182b]">{item?.value ?? "..."}</div>
-                  <div className={`mt-2 text-sm ${item?.color ?? "text-slate-700"}`}>{item?.change ?? ""}</div>
-                </div>
-              ))}
-            </div>
+            {loading ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {Array(3).fill(null).map((_, index) => (
+                  <div key={index} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                    <div className="h-4 w-24 rounded bg-slate-200" />
+                    <div className="mt-4 h-10 w-16 rounded bg-slate-200" />
+                    <div className="mt-2 h-4 w-20 rounded bg-slate-200" />
+                  </div>
+                ))}
+              </div>
+            ) : overview.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-slate-500">
+                Nenhum resumo operacional disponível.
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {overview.map((item) => (
+                  <div key={item.title} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                    <div className="text-sm text-slate-500">{item.title}</div>
+                    <div className="mt-4 text-3xl font-semibold text-[#17182b]">{item.value}</div>
+                    <div className={`mt-2 text-sm ${item.color}`}>{item.change}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="rounded-[32px] bg-white p-6 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
@@ -98,80 +128,32 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-4">
-              {(loading ? Array(3).fill(null) as (DashboardActivity | null)[] : activities).map((item, index) => (
-                <div key={item?.title ?? index} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <h3 className="font-semibold text-[#17182b]">{item?.title ?? "Carregando"}</h3>
-                      <p className="mt-2 text-sm text-slate-500">{item?.description ?? ""}</p>
-                    </div>
-                    <div className="text-xs text-slate-400">{item?.time ?? ""}</div>
+              {loading ? (
+                Array(3).fill(null).map((_, index) => (
+                  <div key={index} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="h-5 w-32 rounded bg-slate-200" />
+                    <div className="mt-3 h-4 w-full rounded bg-slate-200" />
+                    <div className="mt-4 h-3 w-24 rounded bg-slate-200" />
                   </div>
-                  <div className="mt-4 inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-[#17182b]">{item?.badge ?? ""}</div>
+                ))
+              ) : activities.length === 0 ? (
+                <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-slate-500">
+                  Nenhuma atividade disponível no momento.
                 </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          <div className="rounded-[32px] bg-white p-6 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
-            <div className="mb-6 flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-[#17182b]">Fluxo de Reservas</h2>
-                <p className="mt-2 text-sm text-slate-500">Reservas e devoluções previstas.</p>
-              </div>
-              <button className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100">Ver relatórios</button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="rounded-3xl bg-[#17182b] p-5 text-white">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm uppercase tracking-[0.2em] text-slate-200">Reservas ativas</span>
-                  <span className="text-2xl font-semibold">24</span>
-                </div>
-                <div className="mt-4 text-sm text-slate-200">5 devoluções agendadas, 3 pendentes de confirmação.</div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                  <div className="text-sm text-slate-500">Em retirada</div>
-                  <div className="mt-3 text-2xl font-semibold text-[#17182b]">12</div>
-                </div>
-                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                  <div className="text-sm text-slate-500">Aguardando devolução</div>
-                  <div className="mt-3 text-2xl font-semibold text-[#17182b]">8</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-[32px] bg-white p-6 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-[#17182b]">Resumo de Costura</h2>
-              <p className="mt-2 text-sm text-slate-500">Tarefas pendentes e prazos de entrega.</p>
-            </div>
-            <div className="space-y-4">
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-500">Ajustes em andamento</span>
-                  <span className="text-2xl font-semibold text-[#17182b]">8</span>
-                </div>
-                <div className="mt-3 text-sm text-slate-500">2 urgentes, 6 em fluxo normal.</div>
-              </div>
-              <div className="rounded-3xl border border-orange-200 bg-orange-50 p-5">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-orange-600">Aguardando revisão</span>
-                  <span className="text-2xl font-semibold text-orange-600">4</span>
-                </div>
-                <div className="mt-3 text-sm text-orange-600">Prioridade de entrega nas próximas 12h.</div>
-              </div>
-              <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-emerald-700">Concluídos hoje</span>
-                  <span className="text-2xl font-semibold text-emerald-700">5</span>
-                </div>
-                <div className="mt-3 text-sm text-emerald-700">Tudo pronto para entrega ou retirada.</div>
-              </div>
+              ) : (
+                activities.map((item) => (
+                  <div key={item.title} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="font-semibold text-[#17182b]">{item.title}</h3>
+                        <p className="mt-2 text-sm text-slate-500">{item.description}</p>
+                      </div>
+                      <div className="text-xs text-slate-400">{item.time}</div>
+                    </div>
+                    <div className="mt-4 inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-[#17182b]">{item.badge}</div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </section>
