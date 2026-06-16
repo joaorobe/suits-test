@@ -1,33 +1,27 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { FiUser, FiSearch, FiFilter } from "react-icons/fi";
 import Sidebar from "../components/Sidebar";
-
-const tasks = [
-  { id: "ORD-1234", title: "Terno Preto Alfaiataria", note: "Ajustar barra da manga (2cm) e acinturamento", who: "Gladimir", when: "Hoje - 14:00", status: "Aguardando" },
-  { id: "ORD-1256", title: "Terno Preto Alfaiataria", note: "Ajustar barra da manga (3cm) e encurtamento", who: "Gladimir", when: "Amanhã - 14:00", status: "Aguardando" },
-  { id: "ORD-1299", title: "Smoking Veludo", note: "Ajuste completo de ombros. Prioridade para evento.", who: "Gladimir", when: "Em andamento", status: "Em execução" },
-  { id: "ORD-1301", title: "Terno Preto Alfaiataria", note: "Ajustar barra da manga (2cm)", who: "Gladimir", when: "Hoje - 09:00", status: "Finalizado" },
-];
+import type { TailorTask } from "../../lib/types";
 
 function SmallStat({ label, value }: { label: string; value: string | number }) {
   const valueColor = label === "Total Atribuído"
     ? "text-emerald-600"
     : label === "Aguardando"
-    ? "text-orange-600"
-    : label === "Em execução"
-    ? "text-amber-600"
-    : label === "Finalizados (Hoje)"
-    ? "text-slate-500"
-    : "text-[#17182b]";
+      ? "text-orange-600"
+      : label === "Em execução"
+        ? "text-amber-600"
+        : label === "Finalizados (Hoje)"
+          ? "text-slate-500"
+          : "text-[#17182b]";
   const labelColor = label === "Aguardando"
     ? "text-orange-600"
     : label === "Em execução"
-    ? "text-amber-600"
-    : label === "Finalizados (Hoje)"
-    ? "text-slate-500"
-    : "text-slate-500";
+      ? "text-amber-600"
+      : label === "Finalizados (Hoje)"
+        ? "text-slate-500"
+        : "text-slate-500";
   return (
     <div className="bg-white rounded-[24px] p-5 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
       <div className={`text-sm uppercase tracking-[0.18em] mb-3 ${labelColor}`}>{label}</div>
@@ -36,7 +30,7 @@ function SmallStat({ label, value }: { label: string; value: string | number }) 
   );
 }
 
-function TaskCard({ t, actionLabel }: { t: (typeof tasks)[0]; actionLabel: string }) {
+function TaskCard({ t, actionLabel, onAction }: { t: TailorTask; actionLabel: string; onAction: () => void }) {
   const accent = t.status === "Aguardando" ? "border-l-4 border-orange-300" : t.status === "Em execução" ? "border-l-4 border-amber-300" : "border-l-4 border-slate-300";
   const statusTextClass = t.status === "Aguardando" ? "text-orange-600" : t.status === "Em execução" ? "text-amber-600" : "text-slate-500";
   return (
@@ -51,12 +45,12 @@ function TaskCard({ t, actionLabel }: { t: (typeof tasks)[0]; actionLabel: strin
           <div className="text-sm text-slate-600 mt-2">{t.note}</div>
           <div className="mt-4 flex items-center gap-2 text-sm text-slate-500">
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500"><FiUser /></span>
-            {t.who}
+            {t.assignedTo}
           </div>
           <div className={`mt-4 inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${statusTextClass} border-current`}>{t.status}</div>
         </div>
         <div className="flex items-center justify-end">
-          <button className="rounded-2xl bg-[#17182b] px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-900">{actionLabel}</button>
+          <button onClick={onAction} className="rounded-2xl bg-[#17182b] px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-900">{actionLabel}</button>
         </div>
       </div>
     </div>
@@ -64,6 +58,34 @@ function TaskCard({ t, actionLabel }: { t: (typeof tasks)[0]; actionLabel: strin
 }
 
 export default function CostureiraPage() {
+  const [tasks, setTasks] = useState<TailorTask[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadTasks() {
+      setLoading(true);
+      const response = await fetch("/api/costureira");
+      const data = await response.json();
+      setTasks(data);
+      setLoading(false);
+    }
+    loadTasks();
+  }, []);
+
+  async function handleAction(task: TailorTask) {
+    const nextStatus = task.status === "Aguardando" ? "Em execução" : task.status === "Em execução" ? "Finalizado" : task.status;
+    if (nextStatus === task.status) return;
+
+    const response = await fetch("/api/costureira", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: task.id, status: nextStatus }),
+    });
+    if (!response.ok) return;
+    const updated = await response.json();
+    setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+  }
+
   const aguardando = tasks.filter((x) => x.status === "Aguardando");
   const execucao = tasks.filter((x) => x.status === "Em execução");
   const finalizado = tasks.filter((x) => x.status === "Finalizado");
@@ -91,10 +113,10 @@ export default function CostureiraPage() {
         </header>
 
         <div className="grid grid-cols-1 gap-6 mb-6 xl:grid-cols-4">
-          <SmallStat label="Total Atribuído" value={2} />
-          <SmallStat label="Aguardando" value={2} />
-          <SmallStat label="Em execução" value={1} />
-          <SmallStat label="Finalizados (Hoje)" value={1} />
+          <SmallStat label="Total Atribuído" value={loading ? "..." : tasks.length} />
+          <SmallStat label="Aguardando" value={loading ? "..." : aguardando.length} />
+          <SmallStat label="Em execução" value={loading ? "..." : execucao.length} />
+          <SmallStat label="Finalizados (Hoje)" value={loading ? "..." : finalizado.length} />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -104,9 +126,9 @@ export default function CostureiraPage() {
               <div className="text-sm text-orange-600">{aguardando.length}</div>
             </div>
             <div className="flex-1 space-y-4 overflow-y-auto max-h-[65vh]">
-              {aguardando.map((t) => (
-                <TaskCard key={t.id} t={t} actionLabel="Iniciar" />
-              ))}
+              {(loading ? Array(2).fill(null) as (TailorTask | null)[] : aguardando).map((t, index) =>
+                t ? <TaskCard key={t.id} t={t} actionLabel="Iniciar" onAction={() => handleAction(t)} /> : <div key={index} className="h-40 rounded-[28px] bg-slate-100" />
+              )}
             </div>
           </div>
 
@@ -116,9 +138,9 @@ export default function CostureiraPage() {
               <div className="text-sm text-amber-600">{execucao.length}</div>
             </div>
             <div className="flex-1 space-y-4 overflow-y-auto max-h-[65vh]">
-              {execucao.map((t) => (
-                <TaskCard key={t.id} t={t} actionLabel="Concluir" />
-              ))}
+              {(loading ? Array(1).fill(null) as (TailorTask | null)[] : execucao).map((t, index) =>
+                t ? <TaskCard key={t.id} t={t} actionLabel="Concluir" onAction={() => handleAction(t)} /> : <div key={index} className="h-40 rounded-[28px] bg-slate-100" />
+              )}
             </div>
           </div>
 
@@ -128,9 +150,9 @@ export default function CostureiraPage() {
               <div className="text-sm text-slate-500">{finalizado.length}</div>
             </div>
             <div className="flex-1 space-y-4 overflow-y-auto max-h-[65vh]">
-              {finalizado.map((t) => (
-                <TaskCard key={t.id} t={t} actionLabel="Ver detalhes" />
-              ))}
+              {(loading ? Array(1).fill(null) as (TailorTask | null)[] : finalizado).map((t, index) =>
+                t ? <TaskCard key={t.id} t={t} actionLabel="Ver detalhes" onAction={() => {}} /> : <div key={index} className="h-40 rounded-[28px] bg-slate-100" />
+              )}
             </div>
           </div>
         </div>

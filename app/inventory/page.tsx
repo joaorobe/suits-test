@@ -1,23 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { FiBell, FiUser, FiBriefcase } from "react-icons/fi";
 import Sidebar from "../components/Sidebar";
+import type { InventoryItem } from "../../lib/types";
 
-const sample = [
-  { title: "Midnight Black", subtitle: "Paletó e calça", id: "743G", status: "Disponível", size: 42, color: "Black", action: "Reservar Traje" },
-  { title: "Midnight Black", subtitle: "Paletó e calça", id: "743G", status: "Disponível", size: 42, color: "Black", action: "Reservar Traje" },
-  { title: "Midnight Black", subtitle: "Paletó e calça", id: "743G", status: "Costureira", size: 42, color: "Black", action: "Editar Status" },
-  { title: "Midnight Black", subtitle: "Paletó e calça", id: "743G", status: "Costureira", size: 42, color: "Black", action: "Editar Status" },
-  { title: "Midnight Black", subtitle: "Paletó e calça", id: "743G", status: "Alugado", size: 42, color: "Black", action: "Ver Pedido" },
-  { title: "Midnight Black", subtitle: "Paletó e calça", id: "743G", status: "Alugado", size: 42, color: "Black", action: "Ver Pedido" },
-  { title: "Midnight Black", subtitle: "Paletó e calça", id: "743G", status: "Lavanderia", size: 42, color: "Black", action: "Ver Pedido" },
-  { title: "Midnight Black", subtitle: "Paletó e calça", id: "743G", status: "Lavanderia", size: 42, color: "Black", action: "Ver Pedido" },
-];
-
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
+function StatusBadge({ status }: { status: InventoryItem["status"] }) {
+  const map: Record<InventoryItem["status"], string> = {
     Disponível: "text-green-500",
     Costureira: "text-[var(--suit-gold)]",
     Alugado: "text-red-500",
@@ -26,11 +16,11 @@ function StatusBadge({ status }: { status: string }) {
   return <div className={`text-sm font-medium ${map[status] || "text-gray-300"}`}>{status}</div>;
 }
 
-function Card({ item }: { item: (typeof sample)[number] }) {
+function Card({ item }: { item: InventoryItem }) {
   return (
     <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
       <div className="relative h-64 w-full bg-slate-100">
-        <Image src="/terno1.jpg" alt={item.title} fill className="object-cover" />
+        <Image src={item.image} alt={item.title} fill className="object-cover" />
       </div>
       <div className="bg-[#17182b] text-white p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -55,7 +45,7 @@ function Card({ item }: { item: (typeof sample)[number] }) {
           </div>
           <div>
             <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Estoque</div>
-            <div className="mt-2 text-lg font-semibold">1</div>
+            <div className="mt-2 text-lg font-semibold">{item.stock}</div>
           </div>
         </div>
       </div>
@@ -67,6 +57,22 @@ function Card({ item }: { item: (typeof sample)[number] }) {
 }
 
 export default function InventoryPage() {
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadItems() {
+      setLoading(true);
+      const params = search ? `?search=${encodeURIComponent(search)}` : "";
+      const response = await fetch(`/api/inventory${params}`);
+      const data = await response.json();
+      setItems(data);
+      setLoading(false);
+    }
+    loadItems();
+  }, [search]);
+
   return (
     <div className="min-h-screen flex bg-[#F3F5F8] font-sans">
       <Sidebar active="Inventário" />
@@ -100,7 +106,12 @@ export default function InventoryPage() {
         <div className="bg-white rounded-[28px] p-5 shadow-sm border border-slate-200 mb-8">
           <div className="grid grid-cols-12 gap-3">
             <div className="col-span-12 xl:col-span-6">
-              <input placeholder="Buscar por ID ou nome" className="w-full border border-slate-200 bg-slate-50 text-slate-700 placeholder-slate-400 rounded-2xl px-4 py-3 focus:outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por ID ou nome"
+                className="w-full border border-slate-200 bg-slate-50 text-slate-700 placeholder-slate-400 rounded-2xl px-4 py-3 focus:outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
+              />
             </div>
             <div className="col-span-6 sm:col-span-3 xl:col-span-2">
               <select className="w-full border border-slate-200 bg-slate-50 text-slate-700 rounded-2xl px-4 py-3 focus:outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20">
@@ -120,13 +131,13 @@ export default function InventoryPage() {
 
         <section>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {sample.map((s, idx) => (
-              <Card key={idx} item={s} />
+            {(loading ? Array(4).fill(null) as (InventoryItem | null)[] : items).map((item, idx) => (
+              item ? <Card key={item.id} item={item} /> : <div key={idx} className="h-[36rem] rounded-[28px] bg-slate-100" />
             ))}
           </div>
 
           <div className="mt-6 flex justify-between items-center">
-            <p className="text-sm text-gray-500">Mostrando 1 a 8 de 768</p>
+            <p className="text-sm text-gray-500">Mostrando {items.length} itens</p>
             <div className="flex items-center gap-2">
               <button className="p-2">◀</button>
               <div className="flex gap-1">

@@ -1,29 +1,29 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { FiBriefcase, FiBarChart2, FiRotateCcw, FiTrendingUp, FiBell, FiUsers, FiClock } from "react-icons/fi";
 import Sidebar from "../components/Sidebar";
-
-const summaryCards = [
-  { label: "Trajes no Estoque", value: "152", detail: "32 novas unidades", icon: <FiBriefcase className="text-2xl" />, color: "text-[#17182b]" },
-  { label: "Devoluções Pendentes", value: "5", detail: "2 com atraso", icon: <FiRotateCcw className="text-2xl" />, color: "text-orange-600" },
-  { label: "Ajustes em Andamento", value: "8", detail: "3 prioridades", icon: <FiBarChart2 className="text-2xl" />, color: "text-amber-600" },
-  { label: "Clientes Ativos", value: "46", detail: "+12 este mês", icon: <FiUsers className="text-2xl" />, color: "text-slate-700" },
-];
-
-const activityItems = [
-  { title: "Reserva confirmada", description: "Smoking para evento social", time: "Há 40 min", badge: "Em andamento" },
-  { title: "Devolução agendada", description: "Terno preto retirado em 18/05", time: "Hoje, 09:15", badge: "Pendente" },
-  { title: "Ajuste concluído", description: "Alfaiataria de paletó", time: "Ontem, 16:30", badge: "Finalizado" },
-];
-
-const overviewCards = [
-  { title: "Taxa de Retorno", value: "4.2%", change: "+0.8%", color: "text-green-600" },
-  { title: "Tempo Médio de Ajuste", value: "1h 20m", change: "-10m", color: "text-slate-700" },
-  { title: "Multas em Aberto", value: "R$ 420", change: "+R$ 120", color: "text-red-600" },
-];
+import type { DashboardActivity, DashboardMetric, DashboardOverview } from "../../lib/types";
 
 export default function DashboardPage() {
+  const [metrics, setMetrics] = useState<DashboardMetric[]>([]);
+  const [activities, setActivities] = useState<DashboardActivity[]>([]);
+  const [overview, setOverview] = useState<DashboardOverview[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      const response = await fetch("/api/dashboard");
+      const data = await response.json();
+      setMetrics(data.metrics ?? []);
+      setActivities(data.activities ?? []);
+      setOverview(data.overview ?? []);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
   return (
     <div className="min-h-screen flex bg-[#F3F5F8] font-sans">
       <Sidebar active="Dashboard" />
@@ -41,7 +41,7 @@ export default function DashboardPage() {
               <button className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#17182b] shadow-[0_10px_25px_rgba(15,23,42,0.08)] transition hover:bg-slate-100">
                 <FiBell className="mr-2 text-lg" /> Notificações
               </button>
-              <button className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-sm text-white transition hover:bg-white/20">
+              <button onClick={() => window.location.reload()} className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-sm text-white transition hover:bg-white/20">
                 <FiClock className="mr-2 text-lg" /> Atualizar
               </button>
             </div>
@@ -49,18 +49,18 @@ export default function DashboardPage() {
         </header>
 
         <section className="grid grid-cols-1 gap-6 xl:grid-cols-4 mb-8">
-          {summaryCards.map((card) => (
-            <div key={card.label} className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
+          {(loading ? Array(4).fill(null) as (DashboardMetric | null)[] : metrics).map((card, index) => (
+            <div key={card?.label ?? index} className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <div className="text-sm text-slate-500 uppercase tracking-[0.18em]">{card.label}</div>
-                  <div className={`mt-4 text-4xl font-semibold ${card.color}`}>{card.value}</div>
+                  <div className="text-sm text-slate-500 uppercase tracking-[0.18em]">{card?.label ?? "Carregando"}</div>
+                  <div className={`mt-4 text-4xl font-semibold text-[#17182b]`}>{card?.value ?? "..."}</div>
                 </div>
                 <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-slate-100 text-slate-700">
-                  {card.icon}
+                  <FiBriefcase className="text-2xl" />
                 </div>
               </div>
-              <div className="mt-4 text-sm text-slate-500">{card.detail}</div>
+              <div className="mt-4 text-sm text-slate-500">{card?.detail ?? ""}</div>
             </div>
           ))}
         </section>
@@ -78,11 +78,11 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              {overviewCards.map((item) => (
-                <div key={item.title} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                  <div className="text-sm text-slate-500">{item.title}</div>
-                  <div className="mt-4 text-3xl font-semibold text-[#17182b]">{item.value}</div>
-                  <div className={`mt-2 text-sm ${item.color}`}>{item.change}</div>
+              {(loading ? Array(3).fill(null) as (DashboardOverview | null)[] : overview).map((item, index) => (
+                <div key={item?.title ?? index} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                  <div className="text-sm text-slate-500">{item?.title ?? "Carregando"}</div>
+                  <div className="mt-4 text-3xl font-semibold text-[#17182b]">{item?.value ?? "..."}</div>
+                  <div className={`mt-2 text-sm ${item?.color ?? "text-slate-700"}`}>{item?.change ?? ""}</div>
                 </div>
               ))}
             </div>
@@ -98,16 +98,16 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-4">
-              {activityItems.map((item) => (
-                <div key={item.title} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+              {(loading ? Array(3).fill(null) as (DashboardActivity | null)[] : activities).map((item, index) => (
+                <div key={item?.title ?? index} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="font-semibold text-[#17182b]">{item.title}</h3>
-                      <p className="mt-2 text-sm text-slate-500">{item.description}</p>
+                      <h3 className="font-semibold text-[#17182b]">{item?.title ?? "Carregando"}</h3>
+                      <p className="mt-2 text-sm text-slate-500">{item?.description ?? ""}</p>
                     </div>
-                    <div className="text-xs text-slate-400">{item.time}</div>
+                    <div className="text-xs text-slate-400">{item?.time ?? ""}</div>
                   </div>
-                  <div className="mt-4 inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-[#17182b]">{item.badge}</div>
+                  <div className="mt-4 inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-[#17182b]">{item?.badge ?? ""}</div>
                 </div>
               ))}
             </div>

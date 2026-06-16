@@ -1,26 +1,21 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FiSearch, FiFilter, FiUser } from "react-icons/fi";
 import Sidebar from "../components/Sidebar";
-
-const sample = [
-  { order: "#ORD-1234", client: "Robinson Abraham", itemId: "ID-123", item: "Smoking Preto Slim", dateLabel: "Hoje, 18:00", dateNote: "Retirado em 15/05", status: "Aguardando", penalty: "-", action: "Confirmar" },
-  { order: "#ORD-1235", client: "Edecinho Jepsen", itemId: "ID-124", item: "Smoking Preto Slim", dateLabel: "Ontem", dateNote: "1 dia de atraso", status: "Atrasado", penalty: "R$ 50,00", action: "Confirmar" },
-  { order: "#ORD-1236", client: "Anthonio Escobar", itemId: "ID-125", item: "Smoking Preto Slim", dateLabel: "25/04/2026 10:30", dateNote: "", status: "Devolvido", penalty: "Avaria Reportada", action: "Entregue" },
-];
+import type { ReturnOrder } from "../../lib/types";
 
 function StatCard({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
   const labelColor =
     label === "Aguardando"
       ? "text-orange-600"
       : label === "Atrasados"
-      ? "text-red-600"
-      : label === "Finalizados (Hoje)"
-      ? "text-slate-500"
-      : label === "Total Atribuído"
-      ? "text-emerald-600"
-      : "text-slate-500";
+        ? "text-red-600"
+        : label === "Finalizados (Hoje)"
+          ? "text-slate-500"
+          : label === "Total Atribuído"
+            ? "text-emerald-600"
+            : "text-slate-500";
 
   return (
     <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
@@ -31,15 +26,15 @@ function StatCard({ label, value, hint }: { label: string; value: string | numbe
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const statusStyles: Record<string, string> = {
+function StatusBadge({ status }: { status: ReturnOrder["status"] }) {
+  const statusStyles: Record<ReturnOrder["status"], string> = {
     Aguardando: "bg-amber-100 text-amber-700 border border-amber-200",
     Atrasado: "bg-red-100 text-red-700 border border-red-200",
     Devolvido: "bg-emerald-100 text-emerald-700 border border-emerald-200",
   };
 
   return (
-    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[status] || "bg-slate-100 text-slate-700 border border-slate-200"}`}>
+    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[status]}`}>
       {status}
     </span>
   );
@@ -47,6 +42,37 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function DevolucaoPage() {
   const [tab, setTab] = useState("Todas");
+  const [orders, setOrders] = useState<ReturnOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadOrders() {
+      setLoading(true);
+      const response = await fetch("/api/devolucao");
+      const data = await response.json();
+      setOrders(data);
+      setLoading(false);
+    }
+    loadOrders();
+  }, []);
+
+  const filteredOrders = orders.filter((order) => {
+    if (tab === "Pendentes") return order.status === "Aguardando";
+    if (tab === "Atrasadas") return order.status === "Atrasado";
+    if (tab === "Concluídas") return order.status === "Devolvido";
+    return true;
+  });
+
+  async function handleConfirm(order: ReturnOrder) {
+    const response = await fetch("/api/devolucao", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order: order.order, status: "Devolvido", returnedDate: new Date().toLocaleString(), penalty: order.penalty }),
+    });
+    if (!response.ok) return;
+    const updated = await response.json();
+    setOrders((prev) => prev.map((item) => (item.order === updated.order ? updated : item)));
+  }
 
   return (
     <div className="min-h-screen flex bg-[#F3F5F8] font-sans">
@@ -73,20 +99,20 @@ export default function DevolucaoPage() {
         </header>
 
         <div className="grid grid-cols-1 gap-6 mb-6 xl:grid-cols-4">
-          <StatCard label="Total Atribuído" value={1} hint="+8% em relação a ontem" />
-          <StatCard label="Aguardando" value={1} hint="1 pendente" />
-          <StatCard label="Atrasados" value={2} hint="Itens com multa" />
-          <StatCard label="Finalizados (Hoje)" value={1} hint="Entrega concluída" />
+          <StatCard label="Total Atribuído" value={loading ? "..." : orders.length} hint="+8% em relação a ontem" />
+          <StatCard label="Aguardando" value={loading ? "..." : orders.filter((order) => order.status === "Aguardando").length} hint="1 pendente" />
+          <StatCard label="Atrasados" value={loading ? "..." : orders.filter((order) => order.status === "Atrasado").length} hint="Itens com multa" />
+          <StatCard label="Finalizados (Hoje)" value={loading ? "..." : orders.filter((order) => order.status === "Devolvido").length} hint="Entrega concluída" />
         </div>
 
         <div className="bg-white rounded-[28px] p-5 shadow-[0_20px_40px_rgba(15,23,42,0.08)] mb-8">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <nav className="flex flex-wrap gap-3">
-              {['Todas', 'Pendentes', 'Atrasadas', 'Concluídas'].map((t) => (
+              {["Todas", "Pendentes", "Atrasadas", "Concluídas"].map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${tab === t ? 'bg-[#17182b] text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${tab === t ? "bg-[#17182b] text-white shadow-sm" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
                   {t}
                 </button>
               ))}
@@ -116,33 +142,37 @@ export default function DevolucaoPage() {
                 </tr>
               </thead>
               <tbody>
-                {sample.map((s) => (
-                  <tr key={s.order} className="border-t last:border-b">
+                {(loading ? Array(3).fill(null) as (ReturnOrder | null)[] : filteredOrders).map((s, index) => (
+                  <tr key={s?.order ?? index} className="border-t last:border-b">
                     <td className="px-6 py-5 align-top"><input type="checkbox" className="h-4 w-4 text-[#17182b]" /></td>
                     <td className="px-6 py-5 align-top">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"><FiUser /></div>
                         <div>
-                          <div className="text-xs text-slate-400">{s.order}</div>
-                          <div className="font-semibold text-[#17182b]">{s.client}</div>
+                          <div className="text-xs text-slate-400">{s?.order ?? "Carregando"}</div>
+                          <div className="font-semibold text-[#17182b]">{s?.client ?? "..."}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-5 align-top">
-                      <div className="text-xs text-slate-400">{s.itemId}</div>
-                      <div className="text-sm text-slate-700">{s.item}</div>
+                      <div className="text-xs text-slate-400">{s?.itemId ?? "..."}</div>
+                      <div className="text-sm text-slate-700">{s?.item ?? "..."}</div>
                     </td>
                     <td className="px-6 py-5 align-top">
-                      <div className="font-medium text-slate-700">{s.dateLabel}</div>
-                      {s.dateNote ? <div className="text-xs text-red-500 mt-1">{s.dateNote}</div> : null}
+                      <div className="font-medium text-slate-700">{s?.dueDate ?? "..."}</div>
+                      {s?.returnedDate ? <div className="text-xs text-red-500 mt-1">{s.returnedDate}</div> : null}
                     </td>
-                    <td className="px-6 py-5 align-top"><StatusBadge status={s.status} /></td>
-                    <td className="px-6 py-5 align-top"><div className="text-sm text-slate-600">{s.penalty}</div></td>
+                    <td className="px-6 py-5 align-top">{s ? <StatusBadge status={s.status} /> : <span className="text-xs text-slate-400">...</span>}</td>
+                    <td className="px-6 py-5 align-top"><div className="text-sm text-slate-600">{s?.penalty ?? "..."}</div></td>
                     <td className="px-6 py-5 align-top">
-                      {s.action === "Confirmar" ? (
-                        <button className="rounded-2xl bg-[#17182b] px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-900">{s.action}</button>
+                      {s ? (
+                        s.action === "Confirmar" ? (
+                          <button onClick={() => handleConfirm(s)} className="rounded-2xl bg-[#17182b] px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-900">{s.action}</button>
+                        ) : (
+                          <button className="rounded-2xl border border-slate-200 bg-slate-100 px-4 py-2 text-sm text-slate-600" disabled>{s.action}</button>
+                        )
                       ) : (
-                        <button className="rounded-2xl border border-slate-200 bg-slate-100 px-4 py-2 text-sm text-slate-600" disabled>{s.action}</button>
+                        <div className="h-9 w-24 rounded-2xl bg-slate-100" />
                       )}
                     </td>
                   </tr>
@@ -152,7 +182,7 @@ export default function DevolucaoPage() {
           </div>
 
           <div className="flex flex-col gap-4 items-center justify-between border-t border-slate-200 p-5 sm:flex-row">
-            <div className="text-sm text-slate-500">Mostrando 1 a 10 de 20 devoluções</div>
+            <div className="text-sm text-slate-500">Mostrando {filteredOrders.length} de {orders.length} devoluções</div>
             <div className="flex items-center gap-2">
               <button className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100">◀</button>
               <div className="flex gap-2">
