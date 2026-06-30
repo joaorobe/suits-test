@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { FiBriefcase, FiBarChart2, FiRotateCcw, FiTrendingUp, FiBell, FiUsers, FiClock } from "react-icons/fi";
 import Sidebar from "../components/Sidebar";
+import AuthGuard from "../components/AuthGuard";
 import type { DashboardActivity, DashboardMetric, DashboardOverview } from "../../lib/types";
 
 export default function DashboardPage() {
@@ -25,10 +26,11 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="min-h-screen flex bg-[#F3F5F8] font-sans">
-      <Sidebar active="Dashboard" />
+    <AuthGuard>
+      <div className="flex min-h-screen overflow-hidden bg-[#F3F5F8] font-sans">
+        <Sidebar active="Dashboard" />
 
-      <main className="flex-1 p-10">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10">
         <header className="mb-8 rounded-[32px] bg-[#17182b] p-8 shadow-[0_30px_90px_rgba(23,24,43,0.14)] text-white">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -157,7 +159,8 @@ export default function DashboardPage() {
             </div>
           </div>
         </section>
-      </main>
-    </div>
+        </main>
+      </div>
+    </AuthGuard>
   );
 }

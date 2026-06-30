@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -14,6 +14,18 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hasAuthCookie = document.cookie
+      .split(";")
+      .map((item) => item.trim())
+      .some((item) => item.startsWith("suits-auth-user="));
+    const hasStoredUser = Boolean(window.localStorage.getItem("suits-auth-user"));
+    if (hasAuthCookie || hasStoredUser) {
+      router.replace("/dashboard");
+    }
+  }, [router]);
 
   function formatCpf(value: string) {
     const onlyDigits = value.replace(/\D/g, "").slice(0, 11);
@@ -62,6 +74,12 @@ export default function LoginPage() {
     if (!response.ok) {
       setError(data.message || "Falha ao autenticar.");
       return;
+    }
+
+    if (typeof window !== "undefined" && data.user?.name) {
+      const userPayload = JSON.stringify(data.user);
+      localStorage.setItem("suits-auth-user", userPayload);
+      document.cookie = `suits-auth-user=${encodeURIComponent(userPayload)}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
     }
 
     router.push("/dashboard");

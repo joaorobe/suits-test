@@ -14,6 +14,8 @@ function rowToInventoryItem(row: any): InventoryItem {
     stock: row.stock,
     image: row.image,
     action: row.action,
+    priceCategory: row.price_category || undefined,
+    price: row.price ? Number(row.price) : undefined,
   };
 }
 
@@ -51,6 +53,7 @@ function snakeCaseField(field: string) {
     returnedDate: "returned_date",
     dueDate: "due_date",
     when: "when_text",
+    priceCategory: "price_category",
   };
   return map[field] ?? field;
 }
@@ -88,10 +91,10 @@ export async function getInventoryById(id: string) {
 
 export async function addInventory(item: InventoryItem) {
   const result = await query(
-    `INSERT INTO inventory (id, title, subtitle, sku, status, size, color, location, stock, image, action)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    `INSERT INTO inventory (id, title, subtitle, sku, status, size, color, location, stock, image, action, price_category, price)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
      RETURNING *`,
-    [item.id, item.title, item.subtitle, item.sku, item.status, item.size, item.color, item.location, item.stock, item.image, item.action]
+    [item.id, item.title, item.subtitle, item.sku, item.status, item.size, item.color, item.location, item.stock, item.image, item.action, item.priceCategory ?? null, item.price ?? null]
   );
   return rowToInventoryItem(result.rows[0]);
 }

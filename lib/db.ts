@@ -29,7 +29,9 @@ async function initDatabase() {
         location text NOT NULL,
         stock integer NOT NULL,
         image text NOT NULL,
-        action text NOT NULL
+        action text NOT NULL,
+        price_category text,
+        price numeric
       );
 
       CREATE TABLE IF NOT EXISTS tailor_tasks (
@@ -64,12 +66,20 @@ async function initDatabase() {
     `);
 
     await client.query(`
-      INSERT INTO inventory (id, title, subtitle, sku, status, size, color, location, stock, image, action)
+      ALTER TABLE inventory ADD COLUMN IF NOT EXISTS price_category text;
+    `);
+
+    await client.query(`
+      ALTER TABLE inventory ADD COLUMN IF NOT EXISTS price numeric;
+    `);
+
+    await client.query(`
+      INSERT INTO inventory (id, title, subtitle, sku, status, size, color, location, stock, image, action, price_category, price)
       VALUES
-        ('743G', 'Midnight Black', 'Paletó e calça', 'INV-743G', 'Disponível', 42, 'Black', 'Estoque Central', 1, '/terno1.jpg', 'Reservar Traje'),
-        ('744H', 'Midnight Black', 'Paletó e calça', 'INV-744H', 'Costureira', 42, 'Black', 'Oficina A', 1, '/terno1.jpg', 'Editar Status'),
-        ('745J', 'Midnight Black', 'Paletó e calça', 'INV-745J', 'Alugado', 42, 'Black', 'Retirado', 0, '/terno1.jpg', 'Ver Pedido'),
-        ('746K', 'Midnight Black', 'Paletó e calça', 'INV-746K', 'Lavanderia', 42, 'Black', 'Lavanderia', 0, '/terno1.jpg', 'Ver Pedido')
+        ('743G', 'Midnight Black', 'Paletó e calça', 'INV-743G', 'Disponível', 42, 'Black', 'Estoque Central', 1, '/terno1.jpg', 'Reservar Traje', 'Terno novo', 290),
+        ('744H', 'Midnight Black', 'Paletó e calça', 'INV-744H', 'Costureira', 42, 'Black', 'Oficina A', 1, '/terno1.jpg', 'Editar Status', 'Terno novo', 290),
+        ('745J', 'Midnight Black', 'Paletó e calça', 'INV-745J', 'Alugado', 42, 'Black', 'Retirado', 0, '/terno1.jpg', 'Ver Pedido', 'Terno novo', 290),
+        ('746K', 'Midnight Black', 'Paletó e calça', 'INV-746K', 'Lavanderia', 42, 'Black', 'Lavanderia', 0, '/terno1.jpg', 'Ver Pedido', 'Terno novo', 290)
       ON CONFLICT (id) DO NOTHING;
     `);
 

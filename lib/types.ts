@@ -10,6 +10,21 @@ export type InventoryItem = {
   stock: number;
   image: string;
   action: string;
+  priceCategory?: string;
+  price?: number;
+};
+
+export type PaymentRecord = {
+  id: string;
+  itemId: string;
+  itemTitle: string;
+  plan: "Diário" | "Semanal";
+  amount: number;
+  status: "Pendente" | "Pago";
+  clientName?: string;
+  clientPhone?: string;
+  clientEmail?: string;
+  createdAt: string;
 };
 
 export type TailorTask = {
@@ -33,6 +48,9 @@ export type ReturnOrder = {
   status: "Aguardando" | "Atrasado" | "Devolvido";
   penalty: string;
   action: string;
+  amountPaid?: number;
+  damageFee?: number;
+  laundryStatus?: "Pendente" | "Em lavanderia" | "Concluído";
 };
 
 export type DashboardMetric = {

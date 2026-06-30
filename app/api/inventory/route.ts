@@ -27,6 +27,8 @@ export async function POST(request: Request) {
     stock: payload.stock ?? 1,
     image: payload.image ?? "/terno1.jpg",
     action: payload.action ?? "Reservar Traje",
+    priceCategory: payload.priceCategory,
+    price: payload.price,
   };
 
   const created = await addInventory(item);

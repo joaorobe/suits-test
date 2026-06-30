@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { FiSearch, FiFilter, FiUser } from "react-icons/fi";
+import { FiSearch, FiFilter, FiUser, FiX } from "react-icons/fi";
 import Sidebar from "../components/Sidebar";
+import AuthGuard from "../components/AuthGuard";
 import type { ReturnOrder } from "../../lib/types";
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
@@ -39,18 +40,51 @@ function StatusBadge({ status }: { status: ReturnOrder["status"] }) {
   );
 }
 
+const RETURN_ORDERS_KEY = "suits-return-orders";
+
+function loadStoredOrders() {
+  if (typeof window === "undefined") return [] as ReturnOrder[];
+  try {
+    const raw = localStorage.getItem(RETURN_ORDERS_KEY);
+    return raw ? (JSON.parse(raw) as ReturnOrder[]) : [];
+  } catch {
+    return [] as ReturnOrder[];
+  }
+}
+
+function saveStoredOrders(orders: ReturnOrder[]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(RETURN_ORDERS_KEY, JSON.stringify(orders));
+}
+
 export default function DevolucaoPage() {
   const [tab, setTab] = useState("Todas");
   const [orders, setOrders] = useState<ReturnOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedOrder, setSelectedOrder] = useState<ReturnOrder | null>(null);
+  const [hasDamage, setHasDamage] = useState(false);
+  const [damageFee, setDamageFee] = useState(50);
 
   useEffect(() => {
     async function loadOrders() {
       setLoading(true);
-      const response = await fetch("/api/devolucao");
-      const data = await response.json();
-      setOrders(data);
-      setLoading(false);
+      try {
+        const response = await fetch("/api/devolucao");
+        if (!response.ok) throw new Error("Falha na API");
+        const data = await response.json();
+        const apiOrders = Array.isArray(data) ? data : [];
+        const storedOrders = loadStoredOrders();
+        const mergedOrders = [
+          ...storedOrders,
+          ...apiOrders.filter((order: ReturnOrder) => !storedOrders.some((item) => item.order === order.order)),
+        ];
+        setOrders(mergedOrders);
+        saveStoredOrders(mergedOrders);
+      } catch {
+        setOrders(loadStoredOrders());
+      } finally {
+        setLoading(false);
+      }
     }
     loadOrders();
   }, []);
@@ -63,21 +97,45 @@ export default function DevolucaoPage() {
   });
 
   async function handleConfirm(order: ReturnOrder) {
-    const response = await fetch("/api/devolucao", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ order: order.order, status: "Devolvido", returnedDate: new Date().toLocaleString(), penalty: order.penalty }),
-    });
-    if (!response.ok) return;
-    const updated = await response.json();
-    setOrders((prev) => prev.map((item) => (item.order === updated.order ? updated : item)));
+    const completedOrder: ReturnOrder = {
+      ...order,
+      status: "Devolvido",
+      returnedDate: new Date().toLocaleString(),
+      penalty: hasDamage ? `R$ ${damageFee.toFixed(2)}` : "-",
+      damageFee: hasDamage ? damageFee : 0,
+      laundryStatus: "Em lavanderia",
+      action: "Entregue",
+    };
+
+    const nextOrders = orders.map((item) => (item.order === order.order ? completedOrder : item));
+    setOrders(nextOrders);
+    saveStoredOrders(nextOrders);
+    setSelectedOrder(null);
+    setHasDamage(false);
+    setDamageFee(50);
+
+    try {
+      await fetch("/api/devolucao", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order: order.order,
+          status: "Devolvido",
+          returnedDate: completedOrder.returnedDate,
+          penalty: completedOrder.penalty,
+        }),
+      });
+    } catch {
+      // keep local state in sync even if the API is unavailable
+    }
   }
 
   return (
-    <div className="min-h-screen flex bg-[#F3F5F8] font-sans">
-      <Sidebar active="Devolução" />
+    <AuthGuard>
+      <div className="flex min-h-screen overflow-hidden bg-[#F3F5F8] font-sans">
+        <Sidebar active="Devolução" />
 
-      <main className="flex-1 p-10">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10">
         <header className="mb-8 rounded-[32px] bg-[#17182b] p-8 shadow-[0_30px_90px_rgba(23,24,43,0.14)] text-white">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -184,7 +242,7 @@ export default function DevolucaoPage() {
                       <td className="px-6 py-5 align-top"><div className="text-sm text-slate-600">{s.penalty}</div></td>
                       <td className="px-6 py-5 align-top">
                         {s.action === "Confirmar" ? (
-                          <button onClick={() => handleConfirm(s)} className="rounded-2xl bg-[#17182b] px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-900">{s.action}</button>
+                          <button onClick={() => { setSelectedOrder(s); setHasDamage(Boolean(s.damageFee)); setDamageFee(s.damageFee ?? 50); }} className="rounded-2xl bg-[#17182b] px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-900">{s.action}</button>
                         ) : (
                           <button className="rounded-2xl border border-slate-200 bg-slate-100 px-4 py-2 text-sm text-slate-600" disabled>{s.action}</button>
                         )}
@@ -209,7 +267,52 @@ export default function DevolucaoPage() {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+        </main>
+      </div>
+
+      {selectedOrder ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-xl rounded-[32px] border border-slate-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Confirmar devolução</p>
+                <h3 className="mt-2 text-2xl font-semibold text-[#17182b]">{selectedOrder.item}</h3>
+              </div>
+              <button onClick={() => setSelectedOrder(null)} className="rounded-full bg-slate-100 p-2 text-slate-600 transition hover:bg-slate-200">
+                <FiX className="text-lg" />
+              </button>
+            </div>
+
+            <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+              <p className="font-semibold text-[#17182b]">Cliente: {selectedOrder.client}</p>
+              <p className="mt-2">Valor pago de entrada: R$ {(selectedOrder.amountPaid ?? 0).toFixed(2)}</p>
+              <p className="mt-2">Status do traje: {selectedOrder.laundryStatus ?? "Pendente"}</p>
+            </div>
+
+            <label className="mt-6 flex items-center gap-3 text-sm text-slate-600">
+              <input type="checkbox" checked={hasDamage} onChange={(e) => setHasDamage(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+              O item apresentou avaria
+            </label>
+
+            {hasDamage ? (
+              <label className="mt-4 block text-sm font-medium text-slate-600">
+                Multa por avaria
+                <input
+                  type="number"
+                  value={damageFee}
+                  onChange={(e) => setDamageFee(Number(e.target.value) || 0)}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
+                />
+              </label>
+            ) : null}
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button onClick={() => setSelectedOrder(null)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">Cancelar</button>
+              <button onClick={() => handleConfirm(selectedOrder)} className="rounded-2xl bg-[#17182b] px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-900">Confirmar devolução</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </AuthGuard>
   );
 }
