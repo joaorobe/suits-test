@@ -14,12 +14,29 @@ export type InventoryItem = {
   price?: number;
 };
 
+export type TailorOrder = {
+  id: string;
+  inventoryId: string;
+  assignedTo: string;
+  adjustmentType: string;
+  description: string;
+  measurements?: string;
+  status: "Novo" | "Iniciado" | "Finalizado" | "Observação";
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+};
+
 export type PaymentRecord = {
   id: string;
   itemId: string;
   itemTitle: string;
   plan: "Diário" | "Semanal";
+  paymentType?: "Aluguel" | "Multa";
   amount: number;
+  entryAmount?: number;
+  paidAmount?: number;
   status: "Pendente" | "Pago";
   clientName?: string;
   clientPhone?: string;
@@ -78,6 +95,7 @@ export type User = {
   cpf: string;
   password: string;
   name: string;
+  role: "admin" | "costureira";
 };
 
 export type LoginRequest = {
@@ -88,5 +106,5 @@ export type LoginRequest = {
 export type LoginResponse = {
   success: boolean;
   message: string;
-  user?: Pick<User, "id" | "name">;
+  user?: Pick<User, "id" | "name" | "role">;
 };

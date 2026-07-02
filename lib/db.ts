@@ -1,4 +1,4 @@
-import { Pool } from "pg";
+import { Pool, type PoolClient } from "pg";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -18,6 +18,14 @@ async function initDatabase() {
   const client = await pool.connect();
   try {
     await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id text PRIMARY KEY,
+        cpf text NOT NULL UNIQUE,
+        password text NOT NULL,
+        name text NOT NULL,
+        role text NOT NULL DEFAULT 'admin'
+      );
+
       CREATE TABLE IF NOT EXISTS inventory (
         id text PRIMARY KEY,
         title text NOT NULL,
@@ -32,6 +40,20 @@ async function initDatabase() {
         action text NOT NULL,
         price_category text,
         price numeric
+      );
+
+      CREATE TABLE IF NOT EXISTS tailor_orders (
+        id text PRIMARY KEY,
+        inventory_id text NOT NULL REFERENCES inventory(id),
+        assigned_to text NOT NULL REFERENCES users(id),
+        adjustment_type text NOT NULL,
+        description text NOT NULL,
+        measurements text,
+        status text NOT NULL DEFAULT 'Novo',
+        notes text,
+        created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+        updated_at timestamp DEFAULT CURRENT_TIMESTAMP,
+        completed_at timestamp
       );
 
       CREATE TABLE IF NOT EXISTS tailor_tasks (
@@ -54,14 +76,27 @@ async function initDatabase() {
         returned_date text,
         status text NOT NULL,
         penalty text NOT NULL,
-        action text NOT NULL
+        action text NOT NULL,
+        amount_paid numeric,
+        damage_fee numeric,
+        laundry_status text
       );
 
-      CREATE TABLE IF NOT EXISTS users (
+      CREATE TABLE IF NOT EXISTS payments (
         id text PRIMARY KEY,
-        cpf text NOT NULL UNIQUE,
-        password text NOT NULL,
-        name text NOT NULL
+        item_id text NOT NULL REFERENCES inventory(id),
+        item_title text NOT NULL,
+        plan text NOT NULL,
+        payment_type text NOT NULL DEFAULT 'Aluguel',
+        amount numeric NOT NULL,
+        entry_amount numeric,
+        paid_amount numeric,
+        status text NOT NULL,
+        client_name text,
+        client_phone text,
+        client_email text,
+        created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+        updated_at timestamp DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
@@ -74,39 +109,35 @@ async function initDatabase() {
     `);
 
     await client.query(`
-      INSERT INTO inventory (id, title, subtitle, sku, status, size, color, location, stock, image, action, price_category, price)
-      VALUES
-        ('743G', 'Midnight Black', 'Paletó e calça', 'INV-743G', 'Disponível', 42, 'Black', 'Estoque Central', 1, '/terno1.jpg', 'Reservar Traje', 'Terno novo', 290),
-        ('744H', 'Midnight Black', 'Paletó e calça', 'INV-744H', 'Costureira', 42, 'Black', 'Oficina A', 1, '/terno1.jpg', 'Editar Status', 'Terno novo', 290),
-        ('745J', 'Midnight Black', 'Paletó e calça', 'INV-745J', 'Alugado', 42, 'Black', 'Retirado', 0, '/terno1.jpg', 'Ver Pedido', 'Terno novo', 290),
-        ('746K', 'Midnight Black', 'Paletó e calça', 'INV-746K', 'Lavanderia', 42, 'Black', 'Lavanderia', 0, '/terno1.jpg', 'Ver Pedido', 'Terno novo', 290)
-      ON CONFLICT (id) DO NOTHING;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'admin';
     `);
 
     await client.query(`
-      INSERT INTO tailor_tasks (id, order_id, title, note, assigned_to, when_text, status, priority)
-      VALUES
-        ('ORD-1234', 'ORD-1234', 'Terno Preto Alfaiataria', 'Ajustar barra da manga (2cm) e acinturamento', 'Gladimir', 'Hoje - 14:00', 'Aguardando', 'Alta'),
-        ('ORD-1256', 'ORD-1256', 'Terno Preto Alfaiataria', 'Ajustar barra da manga (3cm) e encurtamento', 'Gladimir', 'Amanhã - 14:00', 'Aguardando', 'Normal'),
-        ('ORD-1299', 'ORD-1299', 'Smoking Veludo', 'Ajuste completo de ombros. Prioridade para evento.', 'Gladimir', 'Em andamento', 'Em execução', 'Alta'),
-        ('ORD-1301', 'ORD-1301', 'Terno Preto Alfaiataria', 'Ajustar barra da manga (2cm)', 'Gladimir', 'Hoje - 09:00', 'Finalizado', 'Normal')
-      ON CONFLICT (id) DO NOTHING;
+      ALTER TABLE payments ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT CURRENT_TIMESTAMP;
     `);
 
     await client.query(`
-      INSERT INTO return_orders (order_id, client, item_id, item, due_date, returned_date, status, penalty, action)
-      VALUES
-        ('#ORD-1234', 'Robinson Abraham', 'ID-123', 'Smoking Preto Slim', 'Hoje, 18:00', NULL, 'Aguardando', '-', 'Confirmar'),
-        ('#ORD-1235', 'Edecinho Jepsen', 'ID-124', 'Smoking Preto Slim', 'Ontem', NULL, 'Atrasado', 'R$ 50,00', 'Confirmar'),
-        ('#ORD-1236', 'Anthonio Escobar', 'ID-125', 'Smoking Preto Slim', '25/04/2026 10:30', '25/04/2026 10:05', 'Devolvido', 'Avaria Reportada', 'Entregue')
-      ON CONFLICT (order_id) DO NOTHING;
+      ALTER TABLE payments ADD COLUMN IF NOT EXISTS entry_amount numeric;
     `);
 
     await client.query(`
-      INSERT INTO users (id, cpf, password, name)
-      VALUES
-        ('user-1', '123.456.789-10', 'senha123', 'Gladimir')
-      ON CONFLICT (id) DO NOTHING;
+      ALTER TABLE payments ADD COLUMN IF NOT EXISTS paid_amount numeric;
+    `);
+
+    await client.query(`
+      ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_type text NOT NULL DEFAULT 'Aluguel';
+    `);
+
+    await client.query(`
+      ALTER TABLE return_orders ADD COLUMN IF NOT EXISTS amount_paid numeric;
+    `);
+
+    await client.query(`
+      ALTER TABLE return_orders ADD COLUMN IF NOT EXISTS damage_fee numeric;
+    `);
+
+    await client.query(`
+      ALTER TABLE return_orders ADD COLUMN IF NOT EXISTS laundry_status text;
     `);
   } finally {
     client.release();
@@ -119,4 +150,24 @@ export async function query(text: string, params?: unknown[]) {
   }
   await initializationPromise;
   return pool.query(text, params);
+}
+
+export async function withTransaction<T>(operation: (client: PoolClient) => Promise<T>) {
+  if (!initializationPromise) {
+    initializationPromise = initDatabase();
+  }
+  await initializationPromise;
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await operation(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }

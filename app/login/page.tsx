@@ -23,7 +23,14 @@ export default function LoginPage() {
       .some((item) => item.startsWith("suits-auth-user="));
     const hasStoredUser = Boolean(window.localStorage.getItem("suits-auth-user"));
     if (hasAuthCookie || hasStoredUser) {
-      router.replace("/dashboard");
+      const storedUser = window.localStorage.getItem("suits-auth-user");
+      try {
+        const user = JSON.parse(storedUser || "{}");
+        const redirectPath = user.role === "costureira" ? "/costureira" : "/dashboard";
+        router.replace(redirectPath);
+      } catch {
+        router.replace("/dashboard");
+      }
     }
   }, [router]);
 
@@ -80,9 +87,10 @@ export default function LoginPage() {
       const userPayload = JSON.stringify(data.user);
       localStorage.setItem("suits-auth-user", userPayload);
       document.cookie = `suits-auth-user=${encodeURIComponent(userPayload)}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+      
+      const redirectPath = data.user.role === "costureira" ? "/costureira" : "/dashboard";
+      router.push(redirectPath);
     }
-
-    router.push("/dashboard");
   }
 
   return (

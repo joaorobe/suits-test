@@ -9,6 +9,7 @@ export default function Sidebar({ active }: { active?: string }) {
   const pathname = usePathname() || "/";
   const [open, setOpen] = useState(false);
   const [userName, setUserName] = useState("Usuário");
+  const [userRole, setUserRole] = useState<"admin" | "costureira">("admin");
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -40,8 +41,11 @@ export default function Sidebar({ active }: { active?: string }) {
 
           if (typeof name === "string" && name.trim()) {
             setUserName(name);
-            return;
           }
+
+          const role = typeof parsed.role === "string" ? parsed.role : "admin";
+          setUserRole(role === "costureira" ? "costureira" : "admin");
+          return;
         } catch {
           // fallback to localStorage below
         }
@@ -63,8 +67,11 @@ export default function Sidebar({ active }: { active?: string }) {
 
           if (typeof name === "string" && name.trim()) {
             setUserName(name);
-            return;
           }
+
+          const role = typeof parsed.role === "string" ? parsed.role : "admin";
+          setUserRole(role === "costureira" ? "costureira" : "admin");
+          return;
         } catch {
           if (raw.trim()) {
             setUserName(raw);
@@ -81,13 +88,18 @@ export default function Sidebar({ active }: { active?: string }) {
     return () => window.removeEventListener("storage", readStoredUser);
   }, []);
 
-  const items: { label: string; href: string; icon: React.ReactNode }[] = [
-    { label: "Dashboard", href: "/dashboard", icon: <FiBarChart className="text-[var(--suit-gold)] text-2xl" /> },
-    { label: "Inventário", href: "/inventory", icon: <FiBriefcase className="text-[var(--suit-gold)] text-2xl" /> },
-    { label: "Costureira", href: "/costureira", icon: <FiScissors className="text-[var(--suit-gold)] text-2xl" /> },
-    { label: "Devolução", href: "/devolucao", icon: <FiRotateCcw className="text-[var(--suit-gold)] text-2xl" /> },
-    { label: "Pagamentos", href: "/pagamentos", icon: <FiCreditCard className="text-[var(--suit-gold)] text-2xl" /> },
-  ];
+  const items: { label: string; href: string; icon: React.ReactNode }[] =
+    userRole === "costureira"
+      ? [
+          { label: "Costureira", href: "/costureira", icon: <FiScissors className="text-[var(--suit-gold)] text-2xl" /> },
+        ]
+      : [
+          { label: "Dashboard", href: "/dashboard", icon: <FiBarChart className="text-[var(--suit-gold)] text-2xl" /> },
+          { label: "Inventário", href: "/inventory", icon: <FiBriefcase className="text-[var(--suit-gold)] text-2xl" /> },
+          { label: "Costureira", href: "/costureira-admin", icon: <FiScissors className="text-[var(--suit-gold)] text-2xl" /> },
+          { label: "Devolução", href: "/devolucao", icon: <FiRotateCcw className="text-[var(--suit-gold)] text-2xl" /> },
+          { label: "Pagamentos", href: "/pagamentos", icon: <FiCreditCard className="text-[var(--suit-gold)] text-2xl" /> },
+        ];
 
   const resolvedActive = active || items.find((it) => pathname.startsWith(it.href))?.label || "Inventário";
 
@@ -147,7 +159,7 @@ export default function Sidebar({ active }: { active?: string }) {
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">{userName}</p>
-                <p className="text-xs text-slate-300">Administrador</p>
+                <p className="text-xs text-slate-300">{userRole === "costureira" ? "Costureira" : "Administrador"}</p>
               </div>
               <FiUser className="ml-auto text-lg text-[var(--suit-gold)]" />
             </div>

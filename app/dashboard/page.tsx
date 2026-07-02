@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { FiBriefcase, FiBarChart2, FiRotateCcw, FiTrendingUp, FiBell, FiUsers, FiClock } from "react-icons/fi";
+import { FiBriefcase, FiTrendingUp, FiBell, FiClock } from "react-icons/fi";
 import Sidebar from "../components/Sidebar";
 import AuthGuard from "../components/AuthGuard";
 import type { DashboardActivity, DashboardMetric, DashboardOverview } from "../../lib/types";
@@ -82,7 +82,7 @@ export default function DashboardPage() {
         </section>
 
         <section className="grid grid-cols-1 gap-6 xl:grid-cols-3 mb-8">
-          <div className="col-span-2 rounded-[32px] bg-white p-6 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
+          <div className="rounded-[32px] bg-white p-6 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
             <div className="flex items-center justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-xl font-semibold text-[#17182b]">Resumo Operacional</h2>
@@ -108,7 +108,7 @@ export default function DashboardPage() {
                 Nenhum resumo operacional disponível.
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4">
                 {overview.map((item) => (
                   <div key={item.title} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
                     <div className="text-sm text-slate-500">{item.title}</div>
@@ -120,18 +120,18 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className="rounded-[32px] bg-white p-6 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
+          <div className="col-span-2 rounded-[32px] bg-white p-6 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-[#17182b]">Atividades Recentes</h2>
-                <p className="mt-2 text-sm text-slate-500">Ações e eventos mais recentes.</p>
+                <p className="mt-2 text-sm text-slate-500">Logs reais de reservas, pagamentos, devoluções e lavanderia.</p>
               </div>
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs uppercase tracking-[0.24em] text-slate-600">Topo</span>
             </div>
 
-            <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               {loading ? (
-                Array(3).fill(null).map((_, index) => (
+                Array(6).fill(null).map((_, index) => (
                   <div key={index} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
                     <div className="h-5 w-32 rounded bg-slate-200" />
                     <div className="mt-3 h-4 w-full rounded bg-slate-200" />
