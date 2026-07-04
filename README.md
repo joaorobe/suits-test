@@ -108,7 +108,6 @@ O projeto inclui:
 - ícones em PNG para instalação
 - registro do service worker em `app/pwa-register.tsx`
 
-Para instalação real em celulares, publique o projeto em um domínio com HTTPS.
 
 ## Estrutura Básica
 
@@ -135,4 +134,3 @@ public/
 
 - A autenticação atual usa dados salvos em cookie/localStorage no cliente.
 - O banco é inicializado automaticamente em `lib/db.ts`.
-- Para ambiente de produção, revise segurança de autenticação, SSL do PostgreSQL e variáveis de ambiente.
