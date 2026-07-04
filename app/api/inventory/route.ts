@@ -2,11 +2,20 @@ import { NextResponse } from "next/server";
 import { addInventory, getInventory } from "../../../lib/data";
 import type { InventoryItem } from "../../../lib/types";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+};
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const search = url.searchParams.get("search") || undefined;
   const items = await getInventory(search);
-  return NextResponse.json(items);
+  return NextResponse.json(items, { headers: NO_STORE_HEADERS });
 }
 
 export async function POST(request: Request) {

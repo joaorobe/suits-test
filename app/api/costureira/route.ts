@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server";
 import { getTailorTasks, updateTailorTask } from "../../../lib/data";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+};
+
 export async function GET() {
-  return NextResponse.json(await getTailorTasks());
+  return NextResponse.json(await getTailorTasks(), { headers: NO_STORE_HEADERS });
 }
 
 export async function PATCH(request: Request) {

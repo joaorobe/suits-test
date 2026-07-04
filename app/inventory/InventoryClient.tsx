@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { FiBell, FiBriefcase, FiX, FiPlus, FiUser } from "react-icons/fi";
 import Sidebar from "../components/Sidebar";
@@ -9,6 +9,16 @@ import type { InventoryItem, PaymentRecord } from "../../lib/types";
 
 function normalizePhoneInput(value: string) {
   return value.replace(/\D/g, "");
+}
+
+function formatPhoneInput(value: string) {
+  const digits = normalizePhoneInput(value).slice(0, 11);
+
+  if (!digits) return "";
+  if (digits.length < 3) return `(${digits}`;
+  if (digits.length < 8) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
 function isValidEmail(value: string) {
@@ -42,7 +52,7 @@ function Card({ item, onAction }: { item: InventoryItem; onAction: (item: Invent
       <div className="bg-[#17182b] text-white p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h3 className="font-serif text-2xl font-semibold">{item.title}</h3>
+            <h3 className="font-serif text-xl font-semibold">{item.title}</h3>
             <p className="text-sm text-slate-200 mt-1">{item.subtitle}</p>
           </div>
           <div className="text-right text-sm">
@@ -148,6 +158,66 @@ export default function InventoryClient({ initialItems, initialPayments, initial
     setMounted(true);
   }, []);
 
+  const loadInventoryFromServer = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
+
+    try {
+      const response = await fetch(`/api/inventory?ts=${Date.now()}`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Falha ao atualizar inventário (${response.status}).`);
+      }
+
+      const freshItems = await response.json();
+      if (Array.isArray(freshItems)) {
+        setItems(freshItems);
+      }
+    } catch (error) {
+      console.error("Falha ao sincronizar inventário:", error);
+      if (!silent) {
+        setMessage("Não foi possível sincronizar o inventário agora.");
+      }
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadInventoryFromServer(false);
+
+    const syncWhenVisible = () => {
+      if (document.visibilityState === "visible") {
+        void loadInventoryFromServer(true);
+      }
+    };
+
+    const syncWhenFocused = () => {
+      void loadInventoryFromServer(true);
+    };
+
+    const intervalId = window.setInterval(() => {
+      void loadInventoryFromServer(true);
+    }, 15000);
+
+    document.addEventListener("visibilitychange", syncWhenVisible);
+    window.addEventListener("focus", syncWhenFocused);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", syncWhenVisible);
+      window.removeEventListener("focus", syncWhenFocused);
+    };
+  }, [loadInventoryFromServer]);
+
   const statusTabs: Array<"Todas" | InventoryItem["status"]> = ["Todas", "Disponível", "Alugado", "Lavanderia", "Costureira"];
 
   const mergedItems = useMemo(() => {
@@ -201,6 +271,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
       if (!response.ok) throw new Error("Falha no envio");
       const created = await response.json();
       setItems((prev) => [created, ...prev]);
+      void loadInventoryFromServer(true);
       setMessage("Traje enviado com sucesso.");
       setShowForm(false);
       setFormData({
@@ -379,7 +450,6 @@ export default function InventoryClient({ initialItems, initialPayments, initial
             errorText = parsed?.message || bodyText;
           }
         } catch {
-          // ignore parse errors
         }
         throw new Error(`Falha ao confirmar reserva no backend. ${failedResponse.status}: ${errorText}`);
       }
@@ -438,9 +508,6 @@ export default function InventoryClient({ initialItems, initialPayments, initial
                 <button onClick={() => setShowForm((prev) => !prev)} className="inline-flex items-center justify-center rounded-2xl bg-[#17182b] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 ring-1 ring-white/10 transition hover:bg-slate-900">
                   Adicionar Traje
                 </button>
-                <div className="inline-flex items-center rounded-2xl bg-white/10 px-4 py-3 text-sm text-white shadow-inner shadow-slate-900/10">
-                  <FiBell className="text-[var(--suit-gold)] text-xl" />
-                </div>
               </div>
             </div>
           </header>
@@ -617,7 +684,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
 
       {reservationItem && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-xl rounded-[32px] border border-slate-200 bg-white p-6 shadow-2xl">
+          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-[32px] border border-slate-200 bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Nova reserva</p>
@@ -635,6 +702,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
                   value={reservationForm.clientName}
                   onChange={(e) => setReservationForm({ ...reservationForm, clientName: e.target.value })}
                   required
+                  maxLength={64}
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
                   placeholder="Ex.: João da Silva"
                 />
@@ -646,12 +714,12 @@ export default function InventoryClient({ initialItems, initialPayments, initial
                   inputMode="numeric"
                   autoComplete="tel"
                   value={reservationForm.clientPhone}
-                  onChange={(e) => setReservationForm({ ...reservationForm, clientPhone: normalizePhoneInput(e.target.value) })}
+                  onChange={(e) => setReservationForm({ ...reservationForm, clientPhone: formatPhoneInput(e.target.value) })}
                   required
-                  pattern="[0-9]{10,13}"
-                  maxLength={13}
+                  pattern="\(\d{2}\)\s\d{5}-\d{4}"
+                  maxLength={15}
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
-                  placeholder="11999999999"
+                  placeholder="(11) 99999-9999"
                 />
               </label>
               <label className="block text-sm font-medium text-slate-600 sm:col-span-2">
@@ -662,7 +730,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
                   value={reservationForm.clientEmail}
                   onChange={(e) => setReservationForm({ ...reservationForm, clientEmail: e.target.value })}
                   required
-                  maxLength={254}
+                  maxLength={70}
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
                   placeholder="cliente@email.com"
                 />
@@ -737,11 +805,11 @@ export default function InventoryClient({ initialItems, initialPayments, initial
                   </label>
 
                   <label className="block text-sm font-medium text-slate-600">
-                    Medidas / observações
+                    Medidas
                     <textarea
                       value={adjustmentMeasurements}
                       onChange={(e) => setAdjustmentMeasurements(e.target.value)}
-                      placeholder="Medidas do cliente / observações da prova"
+                      placeholder="Medidas do cliente (ex.: cintura, quadril, ombro, etc.)"
                       rows={3}
                       className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
                     />
@@ -757,7 +825,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
               <p className="mt-2">{reservationPlan} • Valor estimado: R$ {((reservationItem?.price ?? 0) * (reservationPlan === "Semanal" ? 7 * 0.7 : 1)).toFixed(2)}</p>
             </div>
 
-            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <div className="sticky bottom-0 mt-6 flex flex-col-reverse gap-3 border-t border-slate-200 bg-white pt-4 sm:flex-row sm:justify-end">
               <button onClick={() => setReservationItem(null)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">Cancelar</button>
               <button onClick={confirmReservation} className="rounded-2xl bg-[#17182b] px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-900">Confirmar reserva</button>
             </div>

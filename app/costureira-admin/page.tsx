@@ -6,11 +6,24 @@ import Sidebar from "../components/Sidebar";
 import AuthGuard from "../components/AuthGuard";
 import type { TailorOrder, InventoryItem } from "../../lib/types";
 
-function OrderDetailsModal({ order, inventory, onClose, onUpdate }: { order: TailorOrder | null; inventory: InventoryItem | null; onClose: () => void; onUpdate: (updated: TailorOrder) => void }) {
+function OrderDetailsModal({
+  order,
+  inventory,
+  onClose,
+  onUpdate,
+  onInventoryUpdate,
+}: {
+  order: TailorOrder | null;
+  inventory: InventoryItem | null;
+  onClose: () => void;
+  onUpdate: (updated: TailorOrder) => void;
+  onInventoryUpdate: (updated: InventoryItem) => void;
+}) {
   if (!order) return null;
 
   const [notes, setNotes] = useState(order.notes || "");
   const [isSaving, setIsSaving] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   async function handleSaveNotes() {
     if (!order) return;
@@ -31,6 +44,35 @@ function OrderDetailsModal({ order, inventory, onClose, onUpdate }: { order: Tai
       setIsSaving(false);
     }
   }
+
+  async function handleConfirmCompletion() {
+    if (!order) return;
+    setIsConfirming(true);
+    try {
+      const response = await fetch("/api/tailor-orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: order.id, notes, confirmCompletion: true }),
+      });
+      if (!response.ok) throw new Error("Erro ao confirmar término");
+
+      const result = await response.json();
+      const updatedOrder = (result.order ?? result) as TailorOrder;
+      const updatedInventory = result.inventory as InventoryItem | undefined;
+
+      onUpdate(updatedOrder);
+      if (updatedInventory) {
+        onInventoryUpdate(updatedInventory);
+      }
+      onClose();
+    } catch (error) {
+      console.error("Erro:", error);
+    } finally {
+      setIsConfirming(false);
+    }
+  }
+
+  const canConfirmCompletion = order.status === "Finalizado" && inventory?.status === "Costureira";
 
   const statusColors: Record<TailorOrder["status"], string> = {
     "Novo": "bg-blue-100 text-blue-800",
@@ -104,6 +146,16 @@ function OrderDetailsModal({ order, inventory, onClose, onUpdate }: { order: Tai
               {isSaving ? "Salvando..." : "Salvar Observações"}
             </button>
           </div>
+
+          {canConfirmCompletion ? (
+            <button
+              onClick={handleConfirmCompletion}
+              disabled={isConfirming}
+              className="w-full rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {isConfirming ? "Confirmando..." : "Confirmar término e mover para Alugado"}
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
@@ -331,6 +383,13 @@ export default function CostureiraAdminPage() {
         onUpdate={(updated) => {
           setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
           setSelectedOrder(updated);
+        }}
+        onInventoryUpdate={(updatedInventory) => {
+          setInventories((prev) => {
+            const next = new Map(prev);
+            next.set(updatedInventory.id, updatedInventory);
+            return next;
+          });
         }}
       />
     </AuthGuard>

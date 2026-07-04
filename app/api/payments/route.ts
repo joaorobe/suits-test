@@ -2,6 +2,15 @@ import { NextResponse } from "next/server";
 import { createPayment, getPayments, updatePayment } from "../../../lib/data";
 import type { PaymentRecord } from "../../../lib/types";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+};
+
 function normalizePhone(value: unknown) {
   return typeof value === "string" ? value.replace(/\D/g, "") : "";
 }
@@ -21,7 +30,7 @@ function isValidPhone(value: string) {
 export async function GET() {
   try {
     const payments = await getPayments();
-    return NextResponse.json(payments);
+    return NextResponse.json(payments, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error("Payments GET error:", error);
     return NextResponse.json({ message: "Erro interno ao carregar pagamentos." }, { status: 500 });

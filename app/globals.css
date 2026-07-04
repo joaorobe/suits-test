@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.theme-dark, .theme-dark *));
+
 :root {
   --background: #f5f7fa;
   --foreground: #0f1724;
@@ -71,6 +73,8 @@ body {
 }
 
 :root.theme-dark .text-\[\#17182b\],
+:root.theme-dark .text-slate-900,
+:root.theme-dark .text-slate-800,
 :root.theme-dark .text-gray-700,
 :root.theme-dark .text-slate-700 {
   color: #e5e7eb !important;

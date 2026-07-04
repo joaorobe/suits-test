@@ -128,7 +128,7 @@ export default function PaymentsClient({ initialPayments }: { initialPayments: P
 
   return (
     <AuthGuard>
-      <div className="flex min-h-screen overflow-hidden bg-[#F3F5F8] font-sans">
+      <div className="flex min-h-screen overflow-hidden bg-[#F3F5F8] font-sans dark:bg-slate-950">
       <Sidebar active="Pagamentos" />
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10">
@@ -158,45 +158,45 @@ export default function PaymentsClient({ initialPayments }: { initialPayments: P
 
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <section>
-            <div className="mb-6 rounded-[28px] bg-white p-6 shadow-sm border border-slate-200">
+            <div className="mb-6 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Resumo</p>
-                  <h2 className="text-3xl font-semibold text-slate-900">Fluxo de pagamentos</h2>
+                  <p className="text-sm uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Resumo</p>
+                  <h2 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">Fluxo de pagamentos</h2>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">A receber</p>
-                    <p className="mt-3 text-3xl font-semibold text-slate-900">R$ {totalDue.toFixed(2)}</p>
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800">
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">A receber</p>
+                    <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-slate-100">R$ {totalDue.toFixed(2)}</p>
                   </div>
-                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Recebido</p>
-                    <p className="mt-3 text-3xl font-semibold text-slate-900">R$ {totalCollected.toFixed(2)}</p>
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800">
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Recebido</p>
+                    <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-slate-100">R$ {totalCollected.toFixed(2)}</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-[28px] bg-white shadow-sm border border-slate-200">
-              <div className="flex flex-col gap-4 border-b border-slate-200 p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex flex-col gap-4 border-b border-slate-200 p-6 sm:flex-row sm:items-center sm:justify-between dark:border-slate-700">
                 <div>
-                  <h3 className="text-xl font-semibold text-slate-900">Pedidos de pagamento</h3>
-                  <p className="text-sm text-slate-500">Veja todos os pedidos criados a partir das reservas de trajes.</p>
+                  <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Pedidos de pagamento</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Veja todos os pedidos criados a partir das reservas de trajes.</p>
                 </div>
                 <div className="relative w-full sm:w-72">
-                  <FiSearch className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                  <FiSearch className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                   <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Buscar pagamento"
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 text-slate-700 outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 text-slate-700 outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                   />
                 </div>
               </div>
 
-              <div className="divide-y divide-slate-200">
+              <div className="divide-y divide-slate-200 dark:divide-slate-700">
                 {filteredPayments.length === 0 ? (
-                  <div className="p-10 text-center text-slate-500">
+                  <div className="p-10 text-center text-slate-500 dark:text-slate-400">
                     Nenhum pagamento encontrado. Faça uma reserva no inventário para criar pedidos.
                   </div>
                 ) : (
@@ -205,19 +205,19 @@ export default function PaymentsClient({ initialPayments }: { initialPayments: P
                       key={record.id}
                       type="button"
                       onClick={() => setActivePaymentId(record.id)}
-                      className={`w-full text-left px-6 py-5 transition hover:bg-slate-50 ${record.paymentType === "Multa" ? "bg-red-50/50" : ""}`}
+                      className={`w-full px-6 py-5 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800 ${record.paymentType === "Multa" ? "bg-red-50/50 dark:bg-red-500/10" : ""}`}
                     >
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                          <p className={`text-sm font-semibold ${record.paymentType === "Multa" ? "text-red-700" : "text-slate-900"}`}>{record.itemTitle}</p>
-                          <p className="text-sm text-slate-500">Pedido {record.id} • Item {record.itemId} • Plano {record.plan}</p>
+                          <p className={`text-sm font-semibold ${record.paymentType === "Multa" ? "text-red-700 dark:text-red-300" : "text-slate-900 dark:text-slate-100"}`}>{record.itemTitle}</p>
+                          <p className="text-sm text-slate-500 dark:text-slate-400">Pedido {record.id} • Item {record.itemId} • Plano {record.plan}</p>
                         </div>
                         <div className="flex items-center gap-3">
                           {record.paymentType === "Multa" ? (
-                            <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">Multa</span>
+                            <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700 dark:bg-red-500/20 dark:text-red-300">Multa</span>
                           ) : null}
                           {renderPaymentStatus(record)}
-                          <span className="text-lg font-semibold text-slate-900">R$ {record.amount.toFixed(2)}</span>
+                          <span className="text-lg font-semibold text-slate-900 dark:text-slate-100">R$ {record.amount.toFixed(2)}</span>
                         </div>
                       </div>
                     </button>
@@ -228,76 +228,76 @@ export default function PaymentsClient({ initialPayments }: { initialPayments: P
           </section>
 
           <aside className="space-y-6">
-            <div className="rounded-[28px] bg-white p-6 shadow-sm border border-slate-200">
-              <h3 className="text-xl font-semibold text-slate-900 mb-4">Detalhes rápidos</h3>
+            <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+              <h3 className="mb-4 text-xl font-semibold text-slate-900 dark:text-slate-100">Detalhes rápidos</h3>
               {activePayment ? (
                 <div className="space-y-4">
-                  <div className="rounded-3xl bg-slate-50 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Pagamento</p>
-                    <p className="mt-2 text-sm text-slate-900">{activePayment.id}</p>
+                  <div className="rounded-3xl bg-slate-50 p-4 dark:bg-slate-800">
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Pagamento</p>
+                    <p className="mt-2 text-sm text-slate-900 dark:text-slate-100">{activePayment.id}</p>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-sm text-slate-500">Item / Pedido</p>
-                    <p className="font-semibold text-slate-900">{activePayment.itemTitle}</p>
-                    <p className="text-sm text-slate-600">ID do item: {activePayment.itemId}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Item / Pedido</p>
+                    <p className="font-semibold text-slate-900 dark:text-slate-100">{activePayment.itemTitle}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-300">ID do item: {activePayment.itemId}</p>
                   </div>
                   {activePayment.paymentType === "Multa" ? (
-                    <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                    <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300">
                       Pagamento de multa por avaria
                     </div>
                   ) : null}
                   <div className="space-y-2">
-                    <p className="text-sm text-slate-500">Valor</p>
-                    <p className="text-2xl font-semibold text-slate-900">R$ {activePayment.amount.toFixed(2)}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Valor</p>
+                    <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100">R$ {activePayment.amount.toFixed(2)}</p>
                   </div>
                   {activePayment.paymentType !== "Multa" ? (
                     <div className="space-y-2">
-                      <p className="text-sm text-slate-500">Entrada configurada</p>
-                      <p className="text-xl font-semibold text-slate-900">R$ {(activePayment.entryAmount ?? 0).toFixed(2)}</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">Entrada configurada</p>
+                      <p className="text-xl font-semibold text-slate-900 dark:text-slate-100">R$ {(activePayment.entryAmount ?? 0).toFixed(2)}</p>
                     </div>
                   ) : null}
                   <div className="space-y-2">
-                    <p className="text-sm text-slate-500">Valor já pago</p>
-                    <p className="text-xl font-semibold text-slate-900">R$ {paidAmount.toFixed(2)}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Valor já pago</p>
+                    <p className="text-xl font-semibold text-slate-900 dark:text-slate-100">R$ {paidAmount.toFixed(2)}</p>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-sm text-slate-500">Saldo restante</p>
-                    <p className="text-xl font-semibold text-slate-900">R$ {remainingAmount.toFixed(2)}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Saldo restante</p>
+                    <p className="text-xl font-semibold text-slate-900 dark:text-slate-100">R$ {remainingAmount.toFixed(2)}</p>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-sm text-slate-500">Status</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Status</p>
                     {renderPaymentStatus(activePayment)}
                   </div>
-                  <div className="rounded-3xl bg-slate-100 p-4">
-                    <p className="text-sm text-slate-500">Cliente</p>
-                    <p className="mt-2 font-semibold text-slate-900">{activePayment.clientName || "Não informado"}</p>
-                    <p className="mt-1 text-sm text-slate-600">{activePayment.clientPhone || "-"}</p>
-                    <p className="mt-1 text-sm text-slate-600">{activePayment.clientEmail || "-"}</p>
+                  <div className="rounded-3xl bg-slate-100 p-4 dark:bg-slate-800">
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Cliente</p>
+                    <p className="mt-2 font-semibold text-slate-900 dark:text-slate-100">{activePayment.clientName || "Não informado"}</p>
+                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{activePayment.clientPhone || "-"}</p>
+                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{activePayment.clientEmail || "-"}</p>
                   </div>
-                  <div className="rounded-3xl bg-slate-100 p-4">
+                  <div className="rounded-3xl bg-slate-100 p-4 dark:bg-slate-800">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm text-slate-500">QR de pagamento</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">QR de pagamento</p>
                       <div className="flex flex-wrap gap-2">
                         {activePayment.paymentType !== "Multa" ? (
                           <>
-                        <button type="button" onClick={() => setQrMode("entrada")} className={`rounded-full px-3 py-1 text-xs font-semibold transition ${qrMode === "entrada" ? "bg-[#17182b] text-white" : "bg-white text-slate-600"}`}>
+                        <button type="button" onClick={() => setQrMode("entrada")} className={`rounded-full px-3 py-1 text-xs font-semibold transition ${qrMode === "entrada" ? "bg-[#17182b] text-white" : "bg-white text-slate-600 dark:bg-slate-700 dark:text-slate-200"}`}>
                           Entrada
                         </button>
-                        <button type="button" onClick={() => setQrMode("saldo")} className={`rounded-full px-3 py-1 text-xs font-semibold transition ${qrMode === "saldo" ? "bg-[#17182b] text-white" : "bg-white text-slate-600"}`}>
+                        <button type="button" onClick={() => setQrMode("saldo")} className={`rounded-full px-3 py-1 text-xs font-semibold transition ${qrMode === "saldo" ? "bg-[#17182b] text-white" : "bg-white text-slate-600 dark:bg-slate-700 dark:text-slate-200"}`}>
                           Saldo
                         </button>
                           </>
                         ) : null}
-                        <button type="button" onClick={() => setQrMode("total")} className={`rounded-full px-3 py-1 text-xs font-semibold transition ${qrMode === "total" ? "bg-[#17182b] text-white" : "bg-white text-slate-600"}`}>
+                        <button type="button" onClick={() => setQrMode("total")} className={`rounded-full px-3 py-1 text-xs font-semibold transition ${qrMode === "total" ? "bg-[#17182b] text-white" : "bg-white text-slate-600 dark:bg-slate-700 dark:text-slate-200"}`}>
                           {activePayment.paymentType === "Multa" ? "Multa" : "Total"}
                         </button>
                       </div>
                     </div>
-                    <div className="mt-3 flex flex-col items-center justify-center rounded-3xl bg-white p-4 text-slate-400 shadow-sm">
+                    <div className="mt-3 flex flex-col items-center justify-center rounded-3xl bg-white p-4 text-slate-400 shadow-sm dark:bg-slate-900 dark:text-slate-300">
                       {qrCodeDataUrl ? (
                         <>
                           <img src={qrCodeDataUrl} alt="QR code do pagamento" className="h-40 w-40 rounded-2xl" />
-                          <p className="mt-3 text-sm text-slate-600">
+                          <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
                             Gerado para R$ {qrAmount.toFixed(2)}
                           </p>
                         </>
@@ -315,19 +315,19 @@ export default function PaymentsClient({ initialPayments }: { initialPayments: P
                       <FiCheckCircle className="text-lg" /> Confirmar valor selecionado
                     </button>
                   ) : (
-                    <div className="rounded-3xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">Aluguel confirmado</div>
+                    <div className="rounded-3xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">Aluguel confirmado</div>
                   )}
                 </div>
               ) : (
-                <div className="rounded-3xl bg-slate-50 p-6 text-slate-500">
+                <div className="rounded-3xl bg-slate-50 p-6 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                   Selecione um pedido para ver detalhes, gerar QR e marcar pagamento.
                 </div>
               )}
             </div>
 
-            <div className="rounded-[28px] bg-white p-6 shadow-sm border border-slate-200">
-              <h3 className="text-xl font-semibold text-slate-900 mb-4">Instruções</h3>
-              <p className="text-sm text-slate-500">Os pedidos de pagamento são gerados automaticamente na reserva de trajes no inventário. Use esta área para acompanhar cobranças e marcar pagamentos recebidos.</p>
+            <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+              <h3 className="mb-4 text-xl font-semibold text-slate-900 dark:text-slate-100">Instruções</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Os pedidos de pagamento são gerados automaticamente na reserva de trajes no inventário. Use esta área para acompanhar cobranças e marcar pagamentos recebidos.</p>
             </div>
           </aside>
         </div>

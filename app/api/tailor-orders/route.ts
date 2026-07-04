@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
-import { getTailorOrders, getTailorOrderById, createTailorOrder, updateTailorOrder, deleteTailorOrder } from "../../../lib/data";
+import { getTailorOrders, getTailorOrderById, createTailorOrder, updateTailorOrder, deleteTailorOrder, updateInventory } from "../../../lib/data";
 import type { TailorOrder } from "../../../lib/types";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+};
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -10,11 +19,11 @@ export async function GET(request: Request) {
   if (orderId) {
     const order = await getTailorOrderById(orderId);
     if (!order) return NextResponse.json({ message: "Pedido não encontrado." }, { status: 404 });
-    return NextResponse.json(order);
+    return NextResponse.json(order, { headers: NO_STORE_HEADERS });
   }
 
   const orders = await getTailorOrders(assignedTo);
-  return NextResponse.json(orders);
+  return NextResponse.json(orders, { headers: NO_STORE_HEADERS });
 }
 
 export async function POST(request: Request) {
@@ -41,10 +50,36 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   const payload = await request.json();
-  const { id, ...updates } = payload as { id?: string } & Partial<TailorOrder>;
+  const { id, confirmCompletion, ...updates } = payload as { id?: string; confirmCompletion?: boolean } & Partial<TailorOrder>;
 
   if (!id) {
     return NextResponse.json({ message: "ID do pedido é obrigatório." }, { status: 400 });
+  }
+
+  if (confirmCompletion) {
+    const currentOrder = await getTailorOrderById(id);
+    if (!currentOrder) {
+      return NextResponse.json({ message: "Pedido não encontrado." }, { status: 404 });
+    }
+
+    if (currentOrder.status !== "Finalizado") {
+      return NextResponse.json({ message: "Só é possível confirmar pedidos já finalizados pela costureira." }, { status: 400 });
+    }
+
+    const updatedOrder = await updateTailorOrder(id, updates);
+    const finalizedOrder = updatedOrder ?? currentOrder;
+
+    const updatedInventory = await updateInventory(finalizedOrder.inventoryId, {
+      status: "Alugado",
+      location: "Retirado",
+      action: "Ver Pedido",
+    });
+
+    if (!updatedInventory) {
+      return NextResponse.json({ message: "Item de inventário não encontrado." }, { status: 404 });
+    }
+
+    return NextResponse.json({ order: finalizedOrder, inventory: updatedInventory });
   }
 
   const updated = await updateTailorOrder(id, updates);

@@ -2,6 +2,15 @@ import { NextResponse } from "next/server";
 import { createReturnOrder, getReturnOrders } from "../../../lib/data";
 import { withTransaction } from "../../../lib/db";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+};
+
 type ReturnDestination = "inventario" | "lavanderia";
 
 function isReturnDestination(value: unknown): value is ReturnDestination {
@@ -11,7 +20,7 @@ function isReturnDestination(value: unknown): value is ReturnDestination {
 export async function GET() {
   try {
     const orders = await getReturnOrders();
-    return NextResponse.json(orders);
+    return NextResponse.json(orders, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error("Devolucao GET error:", error);
     return NextResponse.json({ message: "Erro interno ao carregar devoluções." }, { status: 500 });
