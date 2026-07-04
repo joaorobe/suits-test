@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/inventory", "/costureira", "/costureira-admin", "/devolucao", "/pagamentos"];
+const PROTECTED_PREFIXES = ["/dashboard", "/inventory", "/costureira", "/costureira-admin", "/devolucao", "/pagamentos", "/settings"];
 const ADMIN_ONLY_PREFIXES = ["/dashboard", "/inventory", "/costureira-admin", "/devolucao", "/pagamentos"];
 const TAILOR_ONLY_PREFIXES = ["/costureira"];
 

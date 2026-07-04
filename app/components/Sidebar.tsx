@@ -20,8 +20,14 @@ export default function Sidebar({ active }: { active?: string }) {
   const pathname = usePathname() || "/";
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [userName, setUserName] = useState("Usuário");
   const [userRole, setUserRole] = useState<"admin" | "costureira">("admin");
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setMounted(true), 0);
+    return () => window.clearTimeout(id);
+  }, []);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -143,7 +149,8 @@ export default function Sidebar({ active }: { active?: string }) {
           },
         ];
 
-  const resolvedActive = active || items.find((it) => pathname.startsWith(it.href))?.label || "Inventário";
+  const resolvedActive = active || (mounted ? items.find((it) => pathname.startsWith(it.href))?.label : undefined) || "Inventário";
+  const isSettingsActive = Boolean(active?.startsWith("Configura")) || (mounted && pathname.startsWith("/settings"));
   const userInitials =
     userName
       .split(" ")
@@ -226,7 +233,13 @@ export default function Sidebar({ active }: { active?: string }) {
 
             <div className="mt-8 text-sm text-gray-600">
               <p className="mb-2 font-semibold text-gray-700">Geral</p>
-              <Link href="/settings" onClick={() => setOpen(false)} className="flex items-center gap-2 text-gray-700">
+              <Link
+                href="/settings"
+                onClick={() => setOpen(false)}
+                className={`flex items-center gap-2 rounded-lg px-4 py-3 ${
+                  isSettingsActive ? "bg-[#17182b] text-white shadow-sm" : "text-gray-700 hover:bg-white/60"
+                }`}
+              >
                 <FiSettings className="text-[var(--suit-gold)]" />
                 Configurações
               </Link>

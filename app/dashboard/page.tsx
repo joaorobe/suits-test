@@ -64,8 +64,8 @@ export default function DashboardPage() {
               Nenhuma métrica disponível no momento.
             </div>
           ) : (
-            metrics.map((card) => (
-              <div key={card.label} className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
+            metrics.map((card, index) => (
+              <div key={`${card.label}-${index}`} className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="text-sm text-slate-500 uppercase tracking-[0.18em]">{card.label}</div>
@@ -109,8 +109,8 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="grid gap-4">
-                {overview.map((item) => (
-                  <div key={item.title} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                {overview.map((item, index) => (
+                  <div key={`${item.title}-${item.value}-${index}`} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
                     <div className="text-sm text-slate-500">{item.title}</div>
                     <div className="mt-4 text-3xl font-semibold text-[#17182b]">{item.value}</div>
                     <div className={`mt-2 text-sm ${item.color}`}>{item.change}</div>
@@ -143,8 +143,8 @@ export default function DashboardPage() {
                   Nenhuma atividade disponível no momento.
                 </div>
               ) : (
-                activities.map((item) => (
-                  <div key={item.title} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                activities.map((item, index) => (
+                  <div key={`${item.title}-${item.description}-${item.time}-${index}`} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <h3 className="font-semibold text-[#17182b]">{item.title}</h3>
