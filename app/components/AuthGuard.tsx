@@ -1,69 +1,28 @@
 "use client";
-
-import { useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
-
-const PROTECTED_PREFIXES = ["/dashboard", "/inventory", "/costureira", "/costureira-admin", "/devolucao", "/pagamentos", "/settings"];
-const ADMIN_ONLY_PREFIXES = ["/dashboard", "/inventory", "/costureira-admin", "/devolucao", "/pagamentos"];
-const TAILOR_ONLY_PREFIXES = ["/costureira"];
-
-function getStoredUser() {
-  if (typeof window === "undefined") return null;
-
-  const cookieValue = document.cookie
-    .split(";")
-    .map((item) => item.trim())
-    .find((item) => item.startsWith("suits-auth-user="));
-
-  if (cookieValue) {
-    try {
-      const encoded = cookieValue.slice("suits-auth-user=".length);
-      return JSON.parse(decodeURIComponent(encoded)) as Record<string, unknown>;
-    } catch {
-      // ignore malformed cookie
-    }
-  }
-
-  const stored = window.localStorage.getItem("suits-auth-user");
-  if (!stored) return null;
-
-  try {
-    return JSON.parse(stored) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
+import { homeFor } from '../../lib/roles';
+import { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-
+  const [verifiedPath, setVerifiedPath] = useState<string | null>(null);
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const isProtected = PROTECTED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-    if (!isProtected) return;
-
-    const user = getStoredUser();
-    if (!user || typeof user.role !== "string") {
-      const redirectTo = `/login?redirect=${encodeURIComponent(pathname)}`;
-      router.replace(redirectTo);
-      return;
-    }
-
-    if (TAILOR_ONLY_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
-      if (user.role !== "costureira") {
-        router.replace("/dashboard");
+    let active = true;
+    fetch('/api/auth', { cache: 'no-store' }).then(async response => {
+      if (!active) return;
+      if (!response.ok) { router.replace('/login'); return; }
+      const { user } = await response.json();
+      if (!active) return;
+      if (user.role === 'cliente') { router.replace('/cliente'); return; }
+      const tailorPage = pathname === '/costureira';
+      if (pathname !== '/settings' && ((tailorPage && user.role !== 'costureira') || (!tailorPage && user.role !== 'admin'))) {
+        router.replace(homeFor(user.role));
+        return;
       }
-      return;
-    }
-
-    if (ADMIN_ONLY_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
-      if (user.role !== "admin") {
-        router.replace("/costureira");
-      }
-    }
+      setVerifiedPath(pathname);
+    }).catch(() => { if (active) router.replace('/login'); });
+    return () => { active = false; };
   }, [pathname, router]);
-
-  return <>{children}</>;
+  return verifiedPath === pathname ? <>{children}</> : <p className="p-6">Verificando sessão...</p>;
 }

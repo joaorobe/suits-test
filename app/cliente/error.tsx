@@ -1,0 +1,2 @@
+'use client';
+export default function ErrorPage({reset}:{reset:()=>void}){return <section role="alert" className="customer-card p-8"><h1 className="text-2xl font-serif">Não foi possível carregar esta página</h1><p className="my-4">Confira sua conexão e tente novamente.</p><button className="customer-button" onClick={reset}>Tentar novamente</button></section>;}

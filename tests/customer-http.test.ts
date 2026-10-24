@@ -1,0 +1,67 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+test('HTTP customer portal: registration, server authorization, ownership, approval, measurements and return',{skip:!process.env.TEST_APP_URL},async()=>{
+  const root=process.env.TEST_APP_URL!;
+  async function call(path:string,method='GET',body?:unknown,cookie?:string){return fetch(root+path,{method,redirect:'manual',headers:{...(body?{'Content-Type':'application/json'}:{}),...(cookie?{Cookie:cookie}:{})},body:body?JSON.stringify(body):undefined});}
+  const cookie=(response:Response)=>response.headers.getSetCookie().find(value=>value.startsWith('suits-session='))!.split(';')[0];
+  const cpf=(base:string)=>{let value=base;for(let len=9;len<=10;len++)value+=String(([...value].reduce((sum,digit,index)=>sum+Number(digit)*(len+1-index),0)*10)%11%10);return value;};
+  const registration=(base:string,email:string)=>({name:'Cliente '+base,cpf:cpf(base),email,phone:'11988888888',password:'portal-password',passwordConfirmation:'portal-password'});
+  const account=registration('987654321','portal-one@example.com');
+  assert.equal((await call('/api/register','POST',{...account,role:'admin'})).status,400);
+  const registered=await call('/api/register','POST',account);assert.equal(registered.status,201,await registered.clone().text());
+  const first=cookie(registered);
+  const secondResponse=await call('/api/register','POST',registration('876543210','portal-two@example.com'));assert.equal(secondResponse.status,201);const second=cookie(secondResponse);
+  assert.equal((await call('/api/register','POST',account)).status,409);
+  for(const path of ['/api/inventory','/api/tailor-orders','/api/dashboard','/api/payments','/api/users?role=costureira','/api/admin/requests'])assert.equal((await call(path,'GET',undefined,first)).status,403,path);
+  assert.equal((await call('/inventory','GET',undefined,first)).status,307);
+  assert.equal((await call('/cliente')).status,307);
+  const login=await call('/api/auth','POST',{cpf:'12345678910',password:'validation-password'});assert.equal(login.status,200);const admin=cookie(login);
+  assert.equal((await call('/api/cliente','GET',undefined,admin)).status,403);
+  const itemResponse=await call('/api/inventory','POST',{title:'Traje Portal',subtitle:'Terno completo',size:42,color:'Azul',price:290,priceCategory:'Terno novo'},admin);assert.equal(itemResponse.status,201);const item=await itemResponse.json();
+  const start=new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});const next=new Date(start+'T12:00:00Z');next.setUTCDate(next.getUTCDate()+1);const tomorrow=next.toISOString().slice(0,10);
+  const catalog=await call('/api/cliente/catalogo?start='+start+'&end='+start+'&size=42&min=200&max=300&available=true','GET',undefined,first);assert.equal(catalog.status,200,await catalog.clone().text());assert.ok((await catalog.json()).items.some((entry:{id:string})=>entry.id===item.id));
+  const created=await call('/api/cliente/reservas','POST',{itemId:item.id,start,end:start},first);assert.equal(created.status,201,await created.clone().text());const request=await created.json();
+  assert.equal((await call('/api/cliente/reservas','POST',{itemId:item.id,start,end:start},second)).status,409);
+  const futureResponse=await call('/api/cliente/reservas','POST',{itemId:item.id,start:tomorrow,end:tomorrow},second);assert.equal(futureResponse.status,201);const future=await futureResponse.json();
+  assert.equal((await call('/api/cliente/reservas/'+request.id,'GET',undefined,second)).status,404);
+  assert.equal((await call('/api/cliente/reservas/'+request.id,'DELETE',undefined,second)).status,404);
+  assert.equal((await call('/api/admin/requests/'+request.id,'PATCH',{action:'approve'},first)).status,403);
+  assert.equal((await call('/api/admin/requests/'+request.id,'PATCH',{action:'approve'},admin)).status,200);
+  assert.equal((await call('/api/admin/requests/'+future.id,'PATCH',{action:'approve'},admin)).status,200);
+  let own=await (await call('/api/cliente','GET',undefined,first)).json();
+  const other=await (await call('/api/cliente','GET',undefined,second)).json();assert.equal(own.bookings.length,1);assert.equal(other.bookings.length,1);
+  assert.equal((await call('/api/cliente/perfil','PATCH',{name:'Novo nome',email:account.email,phone:account.phone,measurements:{waist:1}},first)).status,400);
+  assert.equal((await call('/api/admin/measurements','POST',{clientId:own.profile.clientId,measurements:{waist:82,chest:99}},first)).status,403);
+  assert.equal((await call('/api/admin/measurements','POST',{clientId:own.profile.clientId,measurements:{waist:82,chest:99}},admin)).status,201);
+  assert.equal((await (await call('/api/cliente','GET',undefined,second)).json()).measurements.length,0);
+  for(const action of ['measurements','prepare','ready','pickup']){const result=await call('/api/admin/requests/'+request.id,'PATCH',{action},admin);assert.equal(result.status,200,await result.clone().text());}
+  own=await (await call('/api/cliente','GET',undefined,first)).json();assert.equal(own.bookings[0].stage,'out');assert.ok(own.notifications.some((entry:{title:string})=>entry.title==='Pronto para retirada'));
+  assert.equal((await call('/api/cliente/notificacoes','PATCH',{id:own.notifications[0].id},second)).status,404);
+  assert.equal((await call('/api/cliente/notificacoes','PATCH',{id:own.notifications[0].id},first)).status,200);
+  const returns=await (await call('/api/devolucao','GET',undefined,admin)).json();const returned=returns.find((entry:{rentalId:string})=>entry.rentalId===own.bookings[0].rentalId);
+  const futureReturn=returns.find((entry:{rentalId:string})=>entry.rentalId===other.bookings[0].rentalId);
+  assert.equal((await call('/api/devolucao','PATCH',{order:futureReturn.order,destination:'inventario',damageFee:0},admin)).status,409);
+  assert.equal((await call('/api/devolucao','PATCH',{order:returned.order,dueDate:tomorrow},admin)).status,409);
+  const confirmedReturn=await call('/api/devolucao','PATCH',{order:returned.order,destination:'inventario',damageFee:0},admin);assert.equal(confirmedReturn.status,200,await confirmedReturn.clone().text());
+  own=await (await call('/api/cliente','GET',undefined,first)).json();assert.equal(own.bookings[0].returned,true);assert.ok(own.bookings[0].events.some((entry:{stage:string})=>entry.stage==='returned'));
+  for(const page of ['/cliente','/cliente/catalogo','/cliente/reservas','/cliente/perfil','/cliente/historico','/cliente/avisos']){const response=await call(page,'GET',undefined,first);assert.equal(response.status,200,page+': '+await response.clone().text());}
+  const hiddenPage=await call('/cliente/reservas/'+request.id,'GET',undefined,second);
+  assert.ok([200,404].includes(hiddenPage.status));
+  assert.ok((await hiddenPage.text()).includes('Reserva não encontrada'));
+  const legacyItemResponse=await call('/api/inventory','POST',{title:'Traje Legado',subtitle:'Completo',size:40,color:'Preto',price:290},admin);
+  const legacyItem=await legacyItemResponse.json();
+  assert.equal((await call('/api/reservations','POST',{itemId:legacyItem.id,clientName:'Cliente Legado',clientPhone:account.phone,clientEmail:'legacyportal@example.com',plan:'Diário',entryAmount:50},admin)).status,201);
+  const legacyRegistration=await call('/api/register','POST',registration('765432109','legacyportal@example.com'));
+  assert.equal(legacyRegistration.status,201);const legacyCookie=cookie(legacyRegistration);const legacyAccount=await legacyRegistration.json();
+  const beforeLink=await (await call('/api/cliente','GET',undefined,legacyCookie)).json();
+  assert.equal(beforeLink.profile.linkPending,true);assert.equal(beforeLink.bookings.length,0);
+  const administration=await call('/api/admin/requests','GET',undefined,admin);assert.equal(administration.status,200,await administration.clone().text());
+  const pendingLink=(await administration.json()).links.find((entry:{id:string})=>entry.id===legacyAccount.user.id);
+  assert.ok(pendingLink.candidates.length===1);
+  assert.equal((await call('/api/admin/client-links','POST',{userId:legacyAccount.user.id,clientId:pendingLink.candidates[0].id},admin)).status,200);
+  const afterLink=await (await call('/api/cliente','GET',undefined,legacyCookie)).json();
+  assert.equal(afterLink.profile.linkPending,false);assert.equal(afterLink.bookings.length,1);
+  assert.equal((await call('/api/auth','DELETE',undefined,first)).status,200);
+  const relogin=await call('/api/auth','POST',{cpf:account.cpf,password:account.password});assert.equal(relogin.status,200);assert.equal((await relogin.json()).user.role,'cliente');
+});

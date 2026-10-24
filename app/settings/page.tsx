@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { FiMoon, FiSun } from "react-icons/fi";
 import AuthGuard from "../components/AuthGuard";
+import { StaffHeader } from "../components/StaffPanel";
 import Sidebar from "../components/Sidebar";
 import { applyTheme, getStoredTheme, THEME_STORAGE_KEY, type AppTheme } from "../theme-provider";
 
@@ -31,14 +32,11 @@ export default function SettingsPage() {
 
   return (
     <AuthGuard>
-      <div className="flex min-h-screen overflow-hidden bg-[#F3F5F8] font-sans">
+      <div className="staff-workspace flex min-h-screen overflow-hidden bg-[#F3F5F8] font-sans">
         <Sidebar active="Configurações" />
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10">
-          <header className="mb-8 rounded-[32px] bg-[#17182b] p-8 text-white shadow-[0_30px_90px_rgba(23,24,43,0.14)]">
-            <p className="text-sm uppercase tracking-[0.24em] text-slate-300">Geral</p>
-            <h1 className="mt-2 text-4xl font-serif font-semibold">Configurações</h1>
-          </header>
+          <StaffHeader eyebrow="Preferências" title="Configurações" description="Escolha a aparência do Suits neste dispositivo."/>
 
           <section className="max-w-2xl rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">

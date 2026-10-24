@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { FiTrash2, FiChevronRight, FiFilter, FiSearch } from "react-icons/fi";
+import { FiChevronRight, FiFilter, FiSearch } from "react-icons/fi";
+import StaffDialog from "../components/StaffDialog";
+import { StaffHeader } from "../components/StaffPanel";
 import Sidebar from "../components/Sidebar";
 import AuthGuard from "../components/AuthGuard";
 import type { TailorOrder, InventoryItem } from "../../lib/types";
@@ -13,14 +15,12 @@ function OrderDetailsModal({
   onUpdate,
   onInventoryUpdate,
 }: {
-  order: TailorOrder | null;
+  order: TailorOrder;
   inventory: InventoryItem | null;
   onClose: () => void;
   onUpdate: (updated: TailorOrder) => void;
   onInventoryUpdate: (updated: InventoryItem) => void;
 }) {
-  if (!order) return null;
-
   const [notes, setNotes] = useState(order.notes || "");
   const [isSaving, setIsSaving] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -82,14 +82,14 @@ function OrderDetailsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <StaffDialog label="Detalhes do ajuste" onClose={onClose}>
       <div className="w-full max-w-2xl rounded-[32px] bg-white p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between mb-6">
           <div>
             <h2 className="text-2xl font-semibold text-[#17182b]">{order.adjustmentType}</h2>
             <p className="text-sm text-slate-500 mt-1">{order.id}</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl">×</button>
+          <button aria-label="Fechar detalhes" onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl">×</button>
         </div>
 
         <div className="space-y-6">
@@ -133,7 +133,7 @@ function OrderDetailsModal({
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Adicione observações sobre o andamento..."
+              aria-label="Adicione observações sobre o andamento..." placeholder="Adicione observações sobre o andamento..."
               className="w-full rounded-[20px] border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 outline-none focus:border-blue-400 focus:bg-white resize-none h-24"
             />
           </div>
@@ -153,16 +153,16 @@ function OrderDetailsModal({
               disabled={isConfirming}
               className="w-full rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
             >
-              {isConfirming ? "Confirmando..." : "Confirmar término e mover para Alugado"}
+              {isConfirming ? "Confirmando..." : "Confirmar término do ajuste"}
             </button>
           ) : null}
         </div>
       </div>
-    </div>
+    </StaffDialog>
   );
 }
 
-function OrderRow({ order, inventory, onViewDetails, onDelete }: { order: TailorOrder; inventory: InventoryItem | null; onViewDetails: () => void; onDelete: () => void }) {
+function OrderRow({ order, inventory, onViewDetails, }: { order: TailorOrder; inventory: InventoryItem | null; onViewDetails: () => void }) {
   const statusBadgeColors: Record<TailorOrder["status"], string> = {
     "Novo": "bg-blue-100 text-blue-700",
     "Iniciado": "bg-amber-100 text-amber-700",
@@ -195,9 +195,6 @@ function OrderRow({ order, inventory, onViewDetails, onDelete }: { order: Tailor
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <button onClick={onViewDetails} className="rounded-lg bg-blue-100 p-2 text-blue-600 hover:bg-blue-200 transition">
             <FiChevronRight className="text-lg" />
-          </button>
-          <button onClick={onDelete} className="rounded-lg bg-red-100 p-2 text-red-600 hover:bg-red-200 transition">
-            <FiTrash2 className="text-lg" />
           </button>
         </div>
       </td>
@@ -239,17 +236,6 @@ export default function CostureiraAdminPage() {
     loadData();
   }, []);
 
-  async function handleDeleteOrder(id: string) {
-    if (!confirm("Tem certeza que deseja deletar este pedido?")) return;
-    try {
-      const response = await fetch(`/api/tailor-orders?id=${id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("Erro ao deletar");
-      setOrders((prev) => prev.filter((o) => o.id !== id));
-    } catch (error) {
-      console.error("Erro:", error);
-    }
-  }
-
   const filteredOrders = orders.filter((order) => {
     const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.adjustmentType.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -267,24 +253,11 @@ export default function CostureiraAdminPage() {
 
   return (
     <AuthGuard>
-      <div className="flex min-h-screen overflow-hidden bg-[#F3F5F8] font-sans">
+      <div className="staff-workspace flex min-h-screen overflow-hidden bg-[#F3F5F8] font-sans">
         <Sidebar active="Costureira" />
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10">
-          <header className="mb-8 rounded-[32px] bg-[#17182b] p-8 shadow-[0_30px_90px_rgba(23,24,43,0.14)] text-white">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm uppercase tracking-[0.24em] text-slate-300">Gerenciamento</p>
-                <h1 className="mt-2 text-4xl font-serif font-semibold">Pedidos de Ajuste</h1>
-                <p className="mt-3 max-w-2xl text-sm text-slate-200">Acompanhe o andamento dos pedidos enviados para a costureira.</p>
-              </div>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <button onClick={() => window.location.reload()} className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-sm text-white transition hover:bg-white/20">
-                  Atualizar
-                </button>
-              </div>
-            </div>
-          </header>
+          <StaffHeader eyebrow="Gerenciamento do ateliê" title="Pedidos de ajuste" description="Acompanhe o trabalho da costureira, confira as observações e confirme a conclusão."><button onClick={() => window.location.reload()} className="customer-outline">Atualizar</button></StaffHeader>
 
           <section className="grid grid-cols-1 gap-6 xl:grid-cols-4 mb-8">
             <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
@@ -314,7 +287,7 @@ export default function CostureiraAdminPage() {
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Pesquisar pedidos..."
+                    aria-label="Pesquisar pedidos..." placeholder="Pesquisar pedidos..."
                     className="w-full rounded-2xl bg-slate-50 pl-10 pr-4 py-2 text-sm outline-none border border-slate-200 focus:border-blue-400 focus:bg-white"
                   />
                 </div>
@@ -365,7 +338,6 @@ export default function CostureiraAdminPage() {
                         order={order}
                         inventory={inventories.get(order.inventoryId) || null}
                         onViewDetails={() => setSelectedOrder(order)}
-                        onDelete={() => handleDeleteOrder(order.id)}
                       />
                     ))
                   )}
@@ -376,7 +348,8 @@ export default function CostureiraAdminPage() {
         </main>
       </div>
 
-      <OrderDetailsModal
+      {selectedOrder && <OrderDetailsModal
+        key={selectedOrder.id}
         order={selectedOrder}
         inventory={selectedOrder ? inventories.get(selectedOrder.inventoryId) || null : null}
         onClose={() => setSelectedOrder(null)}
@@ -391,7 +364,7 @@ export default function CostureiraAdminPage() {
             return next;
           });
         }}
-      />
+      />}
     </AuthGuard>
   );
 }

@@ -1,176 +1,64 @@
-import { NextResponse } from "next/server";
-import { createReturnOrder, getReturnOrders } from "../../../lib/data";
-import { withTransaction } from "../../../lib/db";
+import { assertAvailable } from '../../../lib/availability';
+import { rentalEvent } from '../../../lib/notifications';
+import { randomUUID } from 'node:crypto';
+import { NextResponse } from 'next/server';
+import { api, readBody } from '../../../lib/api';
+import { getReturnOrders } from '../../../lib/data';
+import { withTransaction } from '../../../lib/db';
+import { HttpError, isoDate, money, requireValue, text } from '../../../lib/rules';
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
-const NO_STORE_HEADERS = {
-  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-  Pragma: "no-cache",
-  Expires: "0",
-};
-
-type ReturnDestination = "inventario" | "lavanderia";
-
-function isReturnDestination(value: unknown): value is ReturnDestination {
-  return value === "inventario" || value === "lavanderia";
-}
-
-export async function GET() {
-  try {
-    const orders = await getReturnOrders();
-    return NextResponse.json(orders, { headers: NO_STORE_HEADERS });
-  } catch (error) {
-    console.error("Devolucao GET error:", error);
-    return NextResponse.json({ message: "Erro interno ao carregar devoluções." }, { status: 500 });
-  }
-}
-
-export async function POST(request: Request) {
-  const payload = await request.json();
-  const { client, itemId, item, dueDate, status, penalty, action, amountPaid, damageFee, laundryStatus } = payload as {
-    client?: string;
-    itemId?: string;
-    item?: string;
-    dueDate?: string;
-    status?: "Aguardando" | "Atrasado" | "Devolvido";
-    penalty?: string;
-    action?: string;
-    amountPaid?: number;
-    damageFee?: number;
-    laundryStatus?: "Pendente" | "Em lavanderia" | "Concluído";
-  };
-
-  if (!client || !itemId || !item || !dueDate || !status || !penalty || !action) {
-    return NextResponse.json({ message: "Dados de devolução incompletos." }, { status: 400 });
-  }
-
-  try {
-    const order = await createReturnOrder({
-      client,
-      itemId,
-      item,
-      dueDate,
-      status,
-      penalty,
-      action,
-      amountPaid,
-      damageFee,
-      laundryStatus,
+export const GET = api('admin', async () => NextResponse.json(await getReturnOrders()));
+export const POST = api('admin', async () => NextResponse.json({ message: 'Crie devoluções pelo fluxo de reserva.' }, { status: 409 }));
+export const PATCH = api('admin', async request => {
+  const payload = await readBody(request);
+  const order = text(payload.order, 'Pedido');
+  if ('dueDate' in payload) {
+    const due = isoDate(payload.dueDate);
+    await withTransaction(async client => {
+      const result = await client.query('SELECT * FROM return_orders WHERE order_id=$1 FOR UPDATE', [order]);
+      const current = result.rows[0];
+      if (!current) throw new HttpError(404, 'Pedido não encontrado.');
+      if (current.status === 'Devolvido') throw new HttpError(409, 'Este pedido já foi devolvido.');
+      await client.query('SELECT id FROM inventory WHERE id=$1 FOR UPDATE',[current.item_id]);
+      if(current.rental_id){
+        const rental=(await client.query('SELECT * FROM rentals WHERE id=$1 FOR UPDATE',[current.rental_id])).rows[0];
+        const request=(await client.query('SELECT id FROM reservation_requests WHERE rental_id=$1',[rental.id])).rows[0];
+        const start=typeof rental.starts_on==='string'?rental.starts_on.slice(0,10):rental.starts_on.toISOString().slice(0,10);
+        requireValue(due>=start,'A devolução não pode ser anterior à retirada.');
+        await assertAvailable(client,current.item_id,start,due,request?.id,rental.id);
+        if(request)await client.query('UPDATE reservation_requests SET ends_on=$1,updated_at=now() WHERE id=$2',[due,request.id]);
+        await rentalEvent(client,rental.id,rental.stage,'A data de devolução foi atualizada para '+due.split('-').reverse().join('/')+'.');
+      }
+      await client.query("UPDATE return_orders SET due_date=$1,due_on=$2,status='Aguardando' WHERE order_id=$3", [due, due, order]);
+      if (current.rental_id) await client.query('UPDATE rentals SET due_on=$1 WHERE id=$2', [due, current.rental_id]);
     });
-    return NextResponse.json(order, { status: 201 });
-  } catch (error) {
-    console.error("Devolucao POST error:", error);
-    return NextResponse.json({ message: "Erro interno ao criar devolução." }, { status: 500 });
+    return NextResponse.json((await getReturnOrders()).find(item => item.order === order));
   }
-}
-
-export async function PATCH(request: Request) {
-  const payload = await request.json();
-  const { order, itemId, status, returnedDate, penalty, damageFee, laundryStatus, destination } = payload as {
-    order?: string;
-    itemId?: string;
-    status?: string;
-    returnedDate?: string;
-    penalty?: string;
-    damageFee?: number;
-    laundryStatus?: string;
-    destination?: ReturnDestination;
-  };
-
-  if (!order || !itemId || !status || !isReturnDestination(destination)) {
-    return NextResponse.json({ message: "Pedido e status são obrigatórios." }, { status: 400 });
-  }
-
-  try {
-    const inventoryUpdate = destination === "inventario"
-      ? {
-          status: "Disponível",
-          location: "Estoque Central",
-          stock: 1,
-          action: "Reservar Traje",
-        }
-      : {
-          status: "Lavanderia",
-          location: "Lavanderia",
-          stock: 0,
-          action: "Ver Pedido",
-        };
-
-    const effectiveLaundryStatus = laundryStatus ?? (destination === "inventario" ? "Concluído" : "Em lavanderia");
-
-    await withTransaction(async (client) => {
-      const updatedReturn = await client.query(
-        `UPDATE return_orders
-         SET status = $1,
-             returned_date = $2,
-             penalty = $3,
-             damage_fee = $4,
-             laundry_status = $5,
-             action = $6
-         WHERE order_id = $7
-         RETURNING *`,
-        [status, returnedDate ?? null, penalty ?? "-", damageFee ?? null, effectiveLaundryStatus, "Entregue", order]
-      );
-
-      if ((updatedReturn.rowCount ?? 0) === 0) {
-        throw new Error("Pedido não encontrado.");
-      }
-
-      const returnRow = updatedReturn.rows[0] as {
-        order_id: string;
-        client: string;
-        item_id: string;
-        item: string;
-      };
-
-      const updatedInventory = await client.query(
-        `UPDATE inventory
-         SET status = $1,
-             location = $2,
-             stock = $3,
-             action = $4
-         WHERE id = $5
-         RETURNING id`,
-        [inventoryUpdate.status, inventoryUpdate.location, inventoryUpdate.stock, inventoryUpdate.action, itemId]
-      );
-
-      if ((updatedInventory.rowCount ?? 0) === 0) {
-        throw new Error("Item do inventário não encontrado.");
-      }
-
-      if (typeof damageFee === "number" && Number.isFinite(damageFee) && damageFee > 0) {
-        const existingFine = await client.query(
-          `SELECT id FROM payments WHERE item_id = $1 AND payment_type = 'Multa' AND status = 'Pendente' LIMIT 1`,
-          [itemId]
-        );
-
-        if ((existingFine.rowCount ?? 0) === 0) {
-          const finePaymentId = `PAY-${Date.now()}`;
-          await client.query(
-            `INSERT INTO payments (id, item_id, item_title, plan, payment_type, amount, entry_amount, paid_amount, status, client_name, client_phone, client_email)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULL, NULL)`,
-            [
-              finePaymentId,
-              returnRow.item_id,
-              `Multa - ${returnRow.item}`,
-              "Diário",
-              "Multa",
-              damageFee,
-              0,
-              0,
-              "Pendente",
-              returnRow.client,
-            ]
-          );
-        }
-      }
-    });
-
-    return NextResponse.json({ message: "Devolução confirmada." });
-  } catch (error) {
-    console.error("Devolucao PATCH error:", error);
-    return NextResponse.json({ message: "Erro interno ao atualizar pedido." }, { status: 500 });
-  }
-}
+  requireValue(payload.destination === 'inventario' || payload.destination === 'lavanderia', 'Destino inválido.');
+  const fee = money(payload.damageFee ?? 0, 'Multa', true);
+  await withTransaction(async client => {
+    const result = await client.query('SELECT * FROM return_orders WHERE order_id=$1 FOR UPDATE', [order]);
+    const current = result.rows[0];
+    if (!current) throw new HttpError(404, 'Pedido não encontrado.');
+    if (current.status === 'Devolvido') throw new HttpError(409, 'Esta devolução já foi confirmada.');
+    const item = await client.query('SELECT * FROM inventory WHERE id=$1 FOR UPDATE', [current.item_id]);
+    if (!item.rowCount) throw new HttpError(404, 'Traje não encontrado.');
+    if (item.rows[0].status !== 'Alugado') throw new HttpError(409, 'O traje precisa estar retirado para confirmar a devolução.');
+    if (item.rows[0].holding_rental_id && item.rows[0].holding_rental_id !== current.rental_id) throw new HttpError(409, 'O traje está retirado em outro aluguel. Confira o pedido.');
+    if (current.rental_id) {
+      const rental = (await client.query('SELECT stage,returned_at FROM rentals WHERE id=$1 FOR UPDATE', [current.rental_id])).rows[0];
+      if (!rental || rental.stage !== 'out' || rental.returned_at) throw new HttpError(409, 'Registre a retirada deste aluguel antes de confirmar sua devolução.');
+    }
+    const returnedAt = new Date().toISOString();
+    const laundry = payload.destination === 'lavanderia';
+    await client.query("UPDATE return_orders SET status='Devolvido',returned_date=$1,penalty=$2,damage_fee=$3,laundry_status=$4,action='Entregue' WHERE order_id=$5", [returnedAt, fee ? 'R$ ' + fee.toFixed(2) : '-', fee, laundry ? 'Em lavanderia' : 'Concluído', order]);
+    await client.query("UPDATE inventory SET status=$1,location=$2,stock=$3,action=$4,holding_rental_id=NULL WHERE id=$5", [laundry ? 'Lavanderia' : 'Disponível', laundry ? 'Lavanderia' : 'Estoque Central', laundry ? 0 : 1, laundry ? 'Ver Pedido' : 'Reservar Traje', current.item_id]);
+    if (current.rental_id) {
+      await client.query("UPDATE rentals SET returned_at=$1,stage='returned' WHERE id=$2", [returnedAt, current.rental_id]);
+      await rentalEvent(client,current.rental_id,'returned','Devolução registrada pela alfaiataria. Obrigado por escolher o Suits.');
+    }
+    if (fee > 0) await client.query("INSERT INTO payments(id,item_id,item_title,plan,payment_type,amount,entry_amount,paid_amount,status,client_name,rental_id) VALUES ($1,$2,$3,'Diário','Multa',$4,0,0,'Pendente',$5,$6)", ['PAY-' + randomUUID(), current.item_id, 'Multa - ' + current.item, fee, current.client, current.rental_id]);
+  });
+  const updated = (await getReturnOrders()).find(item => item.order === order);
+  return NextResponse.json(updated);
+});

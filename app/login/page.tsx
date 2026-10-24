@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { homeFor } from "../../lib/roles";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
@@ -16,22 +17,11 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const hasAuthCookie = document.cookie
-      .split(";")
-      .map((item) => item.trim())
-      .some((item) => item.startsWith("suits-auth-user="));
-    const hasStoredUser = Boolean(window.localStorage.getItem("suits-auth-user"));
-    if (hasAuthCookie || hasStoredUser) {
-      const storedUser = window.localStorage.getItem("suits-auth-user");
-      try {
-        const user = JSON.parse(storedUser || "{}");
-        const redirectPath = user.role === "costureira" ? "/costureira" : "/dashboard";
-        router.replace(redirectPath);
-      } catch {
-        router.replace("/dashboard");
-      }
-    }
+    fetch('/api/auth', { cache: 'no-store' }).then(async response => {
+      if (!response.ok) return;
+      const { user } = await response.json();
+      if (user) router.replace(homeFor(user.role));
+    }).catch(() => {});
   }, [router]);
 
   function formatCpf(value: string) {
@@ -69,35 +59,25 @@ export default function LoginPage() {
     setError("");
     setIsSubmitting(true);
 
-    const response = await fetch("/api/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cpf, password, remember }),
-    });
-
-    const data = await response.json();
-    setIsSubmitting(false);
-
-    if (!response.ok) {
-      setError(data.message || "Falha ao autenticar.");
-      return;
-    }
-
-    if (typeof window !== "undefined" && data.user?.name) {
-      const userPayload = JSON.stringify(data.user);
-      localStorage.setItem("suits-auth-user", userPayload);
-      document.cookie = `suits-auth-user=${encodeURIComponent(userPayload)}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
-      
-      const redirectPath = data.user.role === "costureira" ? "/costureira" : "/dashboard";
-      router.push(redirectPath);
-    }
+    try {
+      const response = await fetch('/api/auth', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cpf, password, remember }),
+      });
+      const data = await response.json();
+      if (!response.ok) { setError(data.message || 'Falha ao autenticar.'); return; }
+      localStorage.removeItem('suits-auth-user');
+      router.replace(homeFor(data.user.role));
+      router.refresh();
+    } catch { setError('Não foi possível conectar. Tente novamente.'); }
+    finally { setIsSubmitting(false); }
   }
 
   return (
     <div className="min-h-screen bg-[#17182b] flex flex-col items-center justify-center px-6 py-10 text-white">
       <header className="relative z-10 mb-10 text-center">
         <div className="mx-auto mb-6 h-auto w-full max-w-sm">
-          <Image src="/logo.png" alt="Suits" width={220} height={60} className="mx-auto object-contain" />
+          <Image src="/logo.png" alt="Suits" width={377} height={174} style={{ width: 220, height: "auto" }} className="mx-auto object-contain" />
         </div>
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight text-white">Bem-vindo ao Suits</h1>
@@ -167,6 +147,7 @@ export default function LoginPage() {
               {isSubmitting ? "Entrando..." : "Entrar"}
             </button>
           </form>
+          <p className="px-8 pb-8 text-center text-sm text-slate-300">Ainda não tem conta? <Link href="/cadastro" className="font-semibold text-amber-300 underline underline-offset-4">Cadastre-se como cliente</Link></p>
         </div>
       </main>
     </div>

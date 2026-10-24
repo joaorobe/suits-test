@@ -1,3 +1,4 @@
+import { api } from "../../../lib/api";
 import { NextResponse } from "next/server";
 import { getDashboardMetrics } from "../../../lib/data";
 
@@ -10,7 +11,7 @@ const NO_STORE_HEADERS = {
   Expires: "0",
 };
 
-export async function GET() {
+async function handleGET() {
   try {
     const data = await getDashboardMetrics();
     return NextResponse.json(data, { headers: NO_STORE_HEADERS });
@@ -19,3 +20,5 @@ export async function GET() {
     return NextResponse.json({ message: "Erro interno ao buscar métricas." }, { status: 500 });
   }
 }
+
+export const GET = api("admin", handleGET);

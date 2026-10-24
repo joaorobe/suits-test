@@ -1,0 +1,56 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import pg from 'pg';
+
+test('PostgreSQL: migration, rollback, concurrent reservations, receipts and session revocation', { skip: !process.env.TEST_DATABASE_URL }, async () => {
+  const schema = 'suits_test_' + randomUUID().replaceAll('-', '');
+  const connection = new URL(process.env.TEST_DATABASE_URL!);
+  const admin = new pg.Client({ connectionString: connection.toString() });
+  await admin.connect();
+  await admin.query(`CREATE SCHEMA ${schema}`);
+  connection.searchParams.set('options', '-c search_path=' + schema);
+  process.env.DATABASE_URL = connection.toString();
+  const { query, closeDatabase } = await import('../lib/db');
+  try {
+    await admin.query(`CREATE TABLE ${schema}.users(id text PRIMARY KEY, cpf text NOT NULL UNIQUE, password text NOT NULL, name text NOT NULL, role text NOT NULL DEFAULT 'admin')`);
+    await admin.query(`INSERT INTO ${schema}.users VALUES ('admin','12345678910','senha123','Administrador','admin')`);
+    await query('SELECT 1');
+    const { authenticateUser } = await import('../lib/data');
+    const { reserve } = await import('../lib/rentals');
+    const { recordPayment } = await import('../lib/payments');
+    const { createSession, findSession, tokenHash } = await import('../lib/auth');
+    assert.equal((await authenticateUser('123.456.789-10', 'senha123'))?.id, 'admin');
+    assert.match((await query("SELECT password FROM users WHERE id='admin'")).rows[0].password, /^scrypt\$/);
+    await query("INSERT INTO inventory(id,title,subtitle,sku,status,size,color,location,stock,image,action,price) VALUES ('test','Traje','Completo','SKU','Disponível',42,'Preto','Estoque',1,'/terno1.jpg','Reservar Traje',290)");
+    const input = { itemId: 'test', plan: 'Diário', clientName: 'Cliente', clientPhone: '11999999999', clientEmail: 'cliente@example.com', entryAmount: 50 };
+    await query("CREATE FUNCTION reject_payment() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'test failure'; END $$");
+    await query('CREATE TRIGGER reject_payment BEFORE INSERT ON payments FOR EACH ROW EXECUTE FUNCTION reject_payment()');
+    await assert.rejects(() => reserve(input), /test failure/);
+    assert.equal((await query('SELECT COUNT(*)::int AS count FROM rentals')).rows[0].count, 0);
+    assert.equal((await query('SELECT COUNT(*)::int AS count FROM clients')).rows[0].count, 0);
+    assert.equal((await query("SELECT stock FROM inventory WHERE id='test'")).rows[0].stock, 1);
+    await query('DROP TRIGGER reject_payment ON payments');
+    const attempts = await Promise.allSettled([reserve(input), reserve(input)]);
+    assert.equal(attempts.filter(result => result.status === 'fulfilled').length, 1, JSON.stringify(attempts.map(result => result.status === 'rejected' ? String(result.reason) : 'reserved')));
+    assert.equal((await query('SELECT COUNT(*)::int AS count FROM rentals')).rows[0].count, 1);
+    const payment = (await query('SELECT * FROM payments')).rows[0];
+    const returned = (await query('SELECT * FROM return_orders')).rows[0];
+    assert.equal(payment.rental_id, returned.rental_id);
+    assert.equal(Number(returned.amount_paid), 0);
+    const receipt = { id: payment.id, paidAmount: 50, expectedPaidAmount: 0 };
+    const receipts = await Promise.allSettled([recordPayment(receipt), recordPayment(receipt)]);
+    assert.equal(receipts.filter(result => result.status === 'fulfilled').length, 1);
+    await assert.rejects(() => recordPayment({ id: payment.id, paidAmount: 300, expectedPaidAmount: 50 }), /supera/);
+    assert.equal(Number((await query('SELECT amount_paid FROM return_orders')).rows[0].amount_paid), 50);
+    const { token } = await createSession('admin', false);
+    assert.equal((await findSession(token))?.role, 'admin');
+    assert.equal(await findSession('forged-cookie'), null);
+    await query('UPDATE sessions SET expires_at=now()-interval \'1 second\' WHERE token_hash=$1', [tokenHash(token)]);
+    assert.equal(await findSession(token), null);
+  } finally {
+    await closeDatabase();
+    await admin.query(`DROP SCHEMA ${schema} CASCADE`);
+    await admin.end();
+  }
+});

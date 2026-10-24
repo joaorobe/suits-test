@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   FiBarChart,
+  FiCalendar,
   FiBriefcase,
   FiCreditCard,
   FiLogOut,
@@ -22,12 +23,36 @@ export default function Sidebar({ active }: { active?: string }) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [userName, setUserName] = useState("Usuário");
-  const [userRole, setUserRole] = useState<"admin" | "costureira">("admin");
+  const [userRole, setUserRole] = useState<"admin" | "costureira" | null>(null);
 
   useEffect(() => {
     const id = window.setTimeout(() => setMounted(true), 0);
     return () => window.clearTimeout(id);
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const menu = document.getElementById('staff-navigation');
+    const main = document.querySelector('main');
+    if (main) main.inert = true;
+    const focusable = () => Array.from(menu?.querySelectorAll<HTMLElement>('a[href],button:not(:disabled)') || []).filter(element => element.getClientRects().length > 0);
+    focusable()[0]?.focus();
+    const trap = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+      const elements = focusable(); const first = elements[0]; const last = elements[elements.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !menu?.contains(document.activeElement))) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || !menu?.contains(document.activeElement))) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener('keydown', trap);
+    return () => { if (main) main.inert = false; document.removeEventListener('keydown',trap); document.getElementById('staff-menu-toggle')?.focus(); };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") { setOpen(false); document.getElementById("staff-menu-toggle")?.focus(); } };
+    document.addEventListener("keydown", close);
+    return () => document.removeEventListener("keydown", close);
+  }, [open]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -38,83 +63,17 @@ export default function Sidebar({ active }: { active?: string }) {
   }, [open]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const readStoredUser = () => {
-      const cookieValue = document.cookie
-        .split(";")
-        .map((item) => item.trim())
-        .find((item) => item.startsWith("suits-auth-user="));
-
-      if (cookieValue) {
-        try {
-          const encoded = cookieValue.slice("suits-auth-user=".length);
-          const parsed = JSON.parse(decodeURIComponent(encoded)) as Record<string, unknown>;
-          const directName = typeof parsed.name === "string" ? parsed.name : undefined;
-          const nestedName =
-            typeof parsed.user === "object" &&
-            parsed.user &&
-            typeof (parsed.user as Record<string, unknown>).name === "string"
-              ? (parsed.user as Record<string, unknown>).name
-              : undefined;
-          const fallbackName = typeof parsed.fullName === "string" ? parsed.fullName : undefined;
-          const name = directName || nestedName || fallbackName;
-
-          if (typeof name === "string" && name.trim()) {
-            setUserName(name);
-          }
-
-          const role = typeof parsed.role === "string" ? parsed.role : "admin";
-          setUserRole(role === "costureira" ? "costureira" : "admin");
-          return;
-        } catch {
-          // fallback to localStorage below
-        }
-      }
-
-      const candidates = ["suits-auth-user", "suits-user", "suits-user-info"];
-      for (const key of candidates) {
-        const raw = window.localStorage.getItem(key);
-        if (!raw) continue;
-
-        try {
-          const parsed = JSON.parse(raw) as Record<string, unknown>;
-          const directName = typeof parsed.name === "string" ? parsed.name : undefined;
-          const nestedName =
-            typeof parsed.user === "object" &&
-            parsed.user &&
-            typeof (parsed.user as Record<string, unknown>).name === "string"
-              ? (parsed.user as Record<string, unknown>).name
-              : undefined;
-          const fallbackName = typeof parsed.fullName === "string" ? parsed.fullName : undefined;
-          const name = directName || nestedName || fallbackName;
-
-          if (typeof name === "string" && name.trim()) {
-            setUserName(name);
-          }
-
-          const role = typeof parsed.role === "string" ? parsed.role : "admin";
-          setUserRole(role === "costureira" ? "costureira" : "admin");
-          return;
-        } catch {
-          if (raw.trim()) {
-            setUserName(raw);
-            return;
-          }
-        }
-      }
-
-      setUserName("Usuário");
-    };
-
-    readStoredUser();
-    window.addEventListener("storage", readStoredUser);
-    return () => window.removeEventListener("storage", readStoredUser);
+    fetch('/api/auth', { cache: 'no-store' }).then(async response => {
+      if (!response.ok) return;
+      const { user } = await response.json();
+      if (user) { setUserName(user.name); setUserRole(user.role); }
+    }).catch(() => {});
   }, []);
 
   const items: { label: string; href: string; icon: React.ReactNode }[] =
-    userRole === "costureira"
+    userRole === null ? [] : userRole === "costureira"
       ? [
+          { label: "Medidas", href: "/medidas", icon: <FiScissors className="text-2xl text-[var(--suit-gold)]" /> },
           {
             label: "Costureira",
             href: "/costureira",
@@ -122,6 +81,9 @@ export default function Sidebar({ active }: { active?: string }) {
           },
         ]
       : [
+          { label: "Operações", href: "/operacoes", icon: <FiCalendar className="text-2xl text-[var(--suit-gold)]" /> },
+          { label: "Medidas", href: "/medidas", icon: <FiScissors className="text-2xl text-[var(--suit-gold)]" /> },
+          { label: "Solicitações", href: "/solicitacoes", icon: <FiCalendar className="text-2xl text-[var(--suit-gold)]" /> },
           {
             label: "Dashboard",
             href: "/dashboard",
@@ -159,7 +121,9 @@ export default function Sidebar({ active }: { active?: string }) {
       .map((part) => part[0])
       .join("") || "U";
 
-  function handleLogout() {
+  async function handleLogout() {
+    const response = await fetch('/api/auth', { method: 'DELETE' }).catch(() => null);
+    if (!response?.ok) { window.alert('Não foi possível sair. Tente novamente.'); return; }
     if (typeof window !== "undefined") {
       ["suits-auth-user", "suits-user", "suits-user-info"].forEach((key) => {
         window.localStorage.removeItem(key);
@@ -178,6 +142,10 @@ export default function Sidebar({ active }: { active?: string }) {
   return (
     <>
       <button
+        id="staff-menu-toggle"
+        aria-label="Abrir menu de navegação"
+        aria-expanded={open}
+        aria-controls="staff-navigation"
         onClick={() => setOpen(true)}
         className="fixed left-4 top-4 z-50 inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-[#17182b]/90 text-white shadow-lg backdrop-blur-md md:hidden"
       >
@@ -192,8 +160,10 @@ export default function Sidebar({ active }: { active?: string }) {
       />
 
       <aside
+        id="staff-navigation"
+        aria-label="Navegação da equipe"
         className={`fixed bottom-4 left-4 top-4 z-50 w-[calc(100%-2rem)] max-w-[18rem] transform overflow-hidden rounded-3xl border border-white/80 bg-[var(--suit-muted)] text-gray-700 shadow-[0_24px_70px_rgba(15,23,42,0.22)] transition-transform duration-300 md:w-72 md:max-w-none md:translate-x-0 ${
-          open ? "translate-x-0" : "-translate-x-[calc(100%+2rem)]"
+          open ? "visible translate-x-0" : "invisible -translate-x-[calc(100%+2rem)] md:visible"
         }`}
       >
         <div className="flex h-full min-h-0 flex-col">
@@ -202,6 +172,7 @@ export default function Sidebar({ active }: { active?: string }) {
               <Image src="/logo.png" alt="Suits" width={180} height={83} className="h-auto w-auto object-contain" />
             </Link>
             <button
+              aria-label="Fechar menu de navegação"
               onClick={() => setOpen(false)}
               className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 md:hidden"
             >
@@ -217,6 +188,7 @@ export default function Sidebar({ active }: { active?: string }) {
                 return (
                   <li key={it.label}>
                     <Link
+                      aria-current={isActive ? "page" : undefined}
                       href={it.href}
                       onClick={() => setOpen(false)}
                       className={`flex items-center gap-3 rounded-lg px-4 py-3 ${
@@ -234,6 +206,7 @@ export default function Sidebar({ active }: { active?: string }) {
             <div className="mt-8 text-sm text-gray-600">
               <p className="mb-2 font-semibold text-gray-700">Geral</p>
               <Link
+                aria-current={isSettingsActive ? "page" : undefined}
                 href="/settings"
                 onClick={() => setOpen(false)}
                 className={`flex items-center gap-2 rounded-lg px-4 py-3 ${

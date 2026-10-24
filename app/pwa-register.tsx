@@ -36,6 +36,15 @@ export function PwaRegister() {
 
     const register = async () => {
       try {
+        if (process.env.NODE_ENV !== 'production') {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.filter(value => {
+            const worker = value.active || value.waiting || value.installing;
+            return worker && new URL(worker.scriptURL).pathname === '/sw.js';
+          }).map(value => value.unregister()));
+          if ('caches' in window) await Promise.all((await caches.keys()).filter(key => key.startsWith('suits-pwa-')).map(key => caches.delete(key)));
+          return;
+        }
         const registration = await navigator.serviceWorker.register("/sw.js");
         registration.update();
       } catch (error) {

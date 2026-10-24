@@ -2,27 +2,12 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { FiUser, FiFilter, FiChevronDown, FiEdit2, FiCheck, FiRefreshCw } from "react-icons/fi";
+import { StaffHeader, StaffError } from "../components/StaffPanel";
+import StaffAlerts from "../components/StaffAlerts";
 import Sidebar from "../components/Sidebar";
 import AuthGuard from "../components/AuthGuard";
+import { today } from "../../lib/rules";
 import type { TailorOrder, InventoryItem } from "../../lib/types";
-
-function SmallStat({ label, value, color }: { label: string; value: string | number; color?: string }) {
-  const defaultColor =
-    label === "Novo"
-      ? "text-blue-600"
-      : label === "Iniciado"
-      ? "text-amber-600"
-      : label === "Finalizado"
-      ? "text-emerald-600"
-      : "text-slate-500";
-
-  return (
-    <div className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm sm:rounded-[24px] sm:p-5 dark:border-slate-700 dark:bg-slate-900">
-      <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-slate-500 sm:mb-3 sm:text-sm dark:text-slate-300">{label}</div>
-      <div className={`text-3xl font-semibold ${color || defaultColor}`}>{value}</div>
-    </div>
-  );
-}
 
 function getStatusStyles(status: TailorOrder["status"]) {
   switch (status) {
@@ -77,7 +62,7 @@ function OrderCard({
   };
 
   const next = nextStatus[order.status];
-  const canSetObservation = order.status !== "Observação";
+  const canSetObservation = !order.confirmedAt && order.status !== "Observação";
   const actionLabel = order.status === "Novo" ? "Iniciar" : order.status === "Iniciado" ? "Finalizar" : order.status === "Observação" ? "Retomar" : "Concluir";
   const suitLabel = inventory ? `${inventory.title}${inventory.subtitle ? ` - ${inventory.subtitle}` : ""}` : "Traje nao encontrado";
   const chevronClass = expanded ? "rotate-180" : "rotate-0";
@@ -87,6 +72,7 @@ function OrderCard({
     <article className={`overflow-hidden rounded-[24px] border ${colors.border} bg-white shadow-sm dark:bg-slate-900`}>
       <button
         type="button"
+        aria-expanded={expanded}
         onClick={onToggle}
         className="w-full px-4 py-4 text-left transition hover:bg-slate-50 sm:px-5 dark:hover:bg-slate-800"
       >
@@ -94,6 +80,7 @@ function OrderCard({
           <div className="min-w-0 flex-1">
             <p className="truncate text-base font-semibold text-slate-900 dark:text-slate-100">{order.adjustmentType}</p>
             <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">ID {order.id}</p>
+            {order.pickupOn&&<p className="mt-2 text-sm font-medium">Retirada prevista: {order.pickupOn.split('-').reverse().join('/')}{order.pickupOn<today()&&order.status!=='Finalizado'?' · Prazo ultrapassado':''}</p>}
             <p className="mt-1 truncate text-sm text-slate-600 dark:text-slate-300">Traje: {suitLabel}</p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass}`}>{order.status}</span>
@@ -178,6 +165,7 @@ function OrderCard({
 }
 
 export default function CostureiraPage() {
+  const [error, setError] = useState("");
   const [orders, setOrders] = useState<TailorOrder[]>([]);
   const [inventories, setInventories] = useState<Map<string, InventoryItem>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -186,6 +174,8 @@ export default function CostureiraPage() {
 
   const sortedOrders = useMemo(() => {
     return [...orders].sort((a, b) => {
+      const urgent = (order: TailorOrder) => order.status !== 'Finalizado' && order.pickupOn ? order.pickupOn : '9999-12-31';
+      if (urgent(a) !== urgent(b)) return urgent(a).localeCompare(urgent(b));
       if (a.status === "Novo" && b.status !== "Novo") return -1;
       if (a.status !== "Novo" && b.status === "Novo") return 1;
 
@@ -197,9 +187,11 @@ export default function CostureiraPage() {
 
   async function loadData() {
     setLoading(true);
+    setError("");
     try {
-      const storedUser = localStorage.getItem("suits-auth-user");
-      const currentUser = storedUser ? JSON.parse(storedUser) : null;
+      const session = await fetch('/api/auth', { cache: 'no-store' });
+      if (!session.ok) throw new Error('Sessão expirada');
+      const { user: currentUser } = await session.json();
       setUser(currentUser);
 
       if (currentUser?.id) {
@@ -209,6 +201,7 @@ export default function CostureiraPage() {
             "Cache-Control": "no-cache",
           },
         });
+        if (!response.ok) throw new Error("Não foi possível carregar os pedidos.");
         const data = await response.json();
         setOrders(Array.isArray(data) ? data : []);
 
@@ -218,6 +211,7 @@ export default function CostureiraPage() {
             "Cache-Control": "no-cache",
           },
         });
+        if (!inventoriesResponse.ok) throw new Error("Não foi possível carregar os trajes.");
         const inventoriesData = await inventoriesResponse.json();
         const map = new Map<string, InventoryItem>();
         if (Array.isArray(inventoriesData)) {
@@ -226,26 +220,16 @@ export default function CostureiraPage() {
         setInventories(map);
       }
     } catch (error) {
-      console.error("Erro ao carregar dados:", error);
+      setError(error instanceof Error ? error.message : "Erro ao carregar os pedidos.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    void loadData();
+    const timer = window.setTimeout(() => { void loadData(); }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
-
-  useEffect(() => {
-    if (sortedOrders.length === 0) {
-      setExpandedOrderId(null);
-      return;
-    }
-
-    if (expandedOrderId && !sortedOrders.some((order) => order.id === expandedOrderId)) {
-      setExpandedOrderId(null);
-    }
-  }, [sortedOrders, expandedOrderId]);
 
   async function handleUpdateStatus(id: string, status: TailorOrder["status"]) {
     try {
@@ -259,44 +243,25 @@ export default function CostureiraPage() {
       setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
       setExpandedOrderId(updated.id);
     } catch (error) {
-      console.error("Erro:", error);
+      setError(error instanceof Error ? error.message : "Não foi possível atualizar o pedido.");
     }
   }
 
-  const novo = orders.filter((x) => x.status === "Novo").length;
-  const iniciado = orders.filter((x) => x.status === "Iniciado").length;
-  const finalizado = orders.filter((x) => x.status === "Finalizado").length;
-  const observacao = orders.filter((x) => x.status === "Observação").length;
-
   return (
     <AuthGuard>
-      <div className="flex min-h-screen overflow-hidden bg-[#F3F5F8] font-sans dark:bg-slate-950">
+      <div className="staff-workspace flex min-h-screen overflow-hidden bg-[#F3F5F8] font-sans dark:bg-slate-950">
         <Sidebar active="Costureira" />
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10">
-          <header className="mb-6 rounded-[28px] bg-[#17182b] p-5 text-white shadow-[0_30px_90px_rgba(23,24,43,0.14)] sm:mb-8 sm:rounded-[32px] sm:p-8">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-300 sm:text-sm">Costureira</p>
-                <h1 className="mt-2 text-3xl font-serif font-semibold sm:text-4xl">Pedidos de Ajuste</h1>
-                <p className="mt-2 max-w-2xl text-sm text-slate-200 sm:mt-3">Toque no pedido para abrir os detalhes e atualizar o andamento do traje.</p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2">
-                  <FiUser className="text-lg" />
-                  <span className="text-sm font-medium">{user?.name || "Costureira"}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void loadData()}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
-                >
-                  <FiRefreshCw className="text-base" /> Atualizar
-                </button>
-              </div>
-            </div>
-          </header>
+          <StaffHeader eyebrow="Ateliê · Costureira" title="Seus pedidos de ajuste" description="Consulte as medidas e os detalhes de cada traje para acompanhar o trabalho.">
+            <span className="inline-flex items-center gap-2 text-sm"><FiUser aria-hidden="true" />{user?.name || "Costureira"}</span>
+            <button type="button" onClick={() => void loadData()} disabled={loading} className="customer-outline"><FiRefreshCw aria-hidden="true" />{loading ? "Atualizando…" : "Atualizar"}</button>
+          </StaffHeader>
+          <StaffError message={error} />
+          <StaffAlerts />
+          <section aria-label="Resumo dos seus pedidos" className="staff-task-summary">
+            {[['Novos', 'Novo'], ['Em andamento', 'Iniciado'], ['Finalizados', 'Finalizado'], ['Com observação', 'Observação']].map(([label, status]) => <div key={status} className="customer-card p-5"><p className="text-sm text-slate-600">{label}</p><p className="mt-2 text-3xl font-semibold">{loading ? '—' : orders.filter(order => order.status === status).length}</p></div>)}
+          </section>
 
           <section className="rounded-[24px] border border-slate-200 bg-white shadow-sm sm:rounded-[28px] dark:border-slate-700 dark:bg-slate-900">
             <div className="border-b border-slate-200 p-4 sm:p-6 dark:border-slate-700">

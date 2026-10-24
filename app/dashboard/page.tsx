@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { FiBriefcase, FiTrendingUp, FiBell, FiClock } from "react-icons/fi";
+import { FiBriefcase, FiTrendingUp, FiClock } from "react-icons/fi";
+import Link from "next/link";
+import { StaffHeader, StaffError } from "../components/StaffPanel";
+import StaffAlerts from "../components/StaffAlerts";
 import Sidebar from "../components/Sidebar";
 import AuthGuard from "../components/AuthGuard";
 import type { DashboardActivity, DashboardMetric, DashboardOverview } from "../../lib/types";
@@ -12,43 +15,42 @@ export default function DashboardPage() {
   const [overview, setOverview] = useState<DashboardOverview[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [error, setError] = useState("");
+
   useEffect(() => {
     async function load() {
+      try {
+      setError("");
       setLoading(true);
       const response = await fetch("/api/dashboard");
+      if (!response.ok) throw new Error("Não foi possível carregar o painel. Tente atualizar novamente.");
       const data = await response.json();
       setMetrics(data.metrics ?? []);
       setActivities(data.activities ?? []);
       setOverview(data.overview ?? []);
-      setLoading(false);
+      } catch (error) { setError(error instanceof Error ? error.message : "Erro ao carregar o painel."); }
+      finally { setLoading(false); }
     }
     load();
   }, []);
 
   return (
     <AuthGuard>
-      <div className="flex min-h-screen overflow-hidden bg-[#F3F5F8] font-sans">
+      <div className="staff-workspace flex min-h-screen overflow-hidden bg-[#F3F5F8] font-sans">
         <Sidebar active="Dashboard" />
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10">
-        <header className="mb-8 rounded-[32px] bg-[#17182b] p-8 shadow-[0_30px_90px_rgba(23,24,43,0.14)] text-white">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-sm uppercase tracking-[0.24em] text-slate-300">Painel</p>
-              <h1 className="mt-2 text-4xl font-serif font-semibold">Visão geral do Suits</h1>
-              <p className="mt-3 max-w-2xl text-sm text-slate-200">Acompanhe estoque, devoluções e demandas de costura com métricas atualizadas e foco operacional.</p>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <button className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#17182b] shadow-[0_10px_25px_rgba(15,23,42,0.08)] transition hover:bg-slate-100">
-                <FiBell className="mr-2 text-lg" /> Notificações
-              </button>
-              <button onClick={() => window.location.reload()} className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-sm text-white transition hover:bg-white/20">
-                <FiClock className="mr-2 text-lg" /> Atualizar
-              </button>
-            </div>
-          </div>
-        </header>
+        <StaffHeader eyebrow="Administração" title="Visão geral do Suits" description="Acompanhe as operações da alfaiataria e encontre rapidamente o que precisa de atenção.">
+          <Link href="/solicitacoes" className="customer-button">Gerenciar solicitações</Link>
+          <button onClick={() => window.location.reload()} className="customer-outline"><FiClock aria-hidden="true" /> Atualizar</button>
+        </StaffHeader>
+        <StaffError message={error} />
+          <StaffAlerts />
+        <nav aria-label="Atalhos administrativos" className="staff-shortcuts">
+          <Link href="/inventory">Consultar inventário <span aria-hidden="true">↗</span></Link>
+          <Link href="/devolucao">Acompanhar devoluções <span aria-hidden="true">↗</span></Link>
+          <Link href="/pagamentos">Conferir pagamentos <span aria-hidden="true">↗</span></Link>
+        </nav>
 
         <section className="grid grid-cols-1 gap-6 xl:grid-cols-4 mb-8">
           {loading ? (
@@ -89,7 +91,7 @@ export default function DashboardPage() {
                 <p className="mt-2 text-sm text-slate-500">Principais indicadores para resultados e fluxo de processos.</p>
               </div>
               <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-600">
-                <FiTrendingUp className="text-base" /> Últimas 24h
+                <FiTrendingUp className="text-base" /> Visão atual
               </div>
             </div>
 
@@ -120,7 +122,7 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className="col-span-2 rounded-[32px] bg-white p-6 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
+          <div className="xl:col-span-2 rounded-[32px] bg-white p-6 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-[#17182b]">Atividades Recentes</h2>

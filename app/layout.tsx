@@ -1,3 +1,4 @@
+import GuidedHelp from "./components/GuidedHelp";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Image from "next/image";
@@ -61,8 +62,10 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col text-lg overflow-x-hidden">
         <ThemeProvider />
+        {process.env.SUITS_DEMO === "1" && <div role="status" className="border-b border-amber-300 bg-amber-100 px-4 py-2 text-center text-xs font-semibold text-amber-950">Ambiente de demonstração · dados locais para testes</div>}
         <PwaRegister />
-        <div className="pointer-events-none fixed right-4 top-4 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-white/20 bg-white/90 shadow-lg md:hidden">
+        <GuidedHelp />
+        <div className="app-floating-logo pointer-events-none fixed right-4 top-4 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-white/20 bg-white/90 shadow-lg md:hidden">
           <Image src="/logo.png" alt="Suits" width={69} height={32} className="h-8 w-auto object-contain" />
         </div>
         {children}

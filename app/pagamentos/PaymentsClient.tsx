@@ -1,13 +1,18 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { FiCreditCard, FiCheckCircle, FiClock, FiDownload, FiSearch } from "react-icons/fi";
+import { FiCheckCircle, FiSearch } from "react-icons/fi";
 import QRCode from "qrcode";
+import Image from "next/image";
+import { StaffHeader } from "../components/StaffPanel";
+import Link from "next/link";
 import Sidebar from "../components/Sidebar";
 import AuthGuard from "../components/AuthGuard";
 import type { PaymentRecord } from "../../lib/types";
 
 export default function PaymentsClient({ initialPayments }: { initialPayments: PaymentRecord[] }) {
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState("");
   const [payments, setPayments] = useState<PaymentRecord[]>(initialPayments);
   const [search, setSearch] = useState("");
   const [activePaymentId, setActivePaymentId] = useState<string | null>(null);
@@ -49,26 +54,15 @@ export default function PaymentsClient({ initialPayments }: { initialPayments: P
     : 0;
 
   useEffect(() => {
-    if (!activePayment) {
-      setQrCodeDataUrl(null);
-      setQrMode("entrada");
-      return;
-    }
-
-    setQrMode(activePayment.paymentType === "Multa" ? "total" : "entrada");
-  }, [activePayment]);
-
-  useEffect(() => {
     let cancelled = false;
 
     async function generateQr() {
       if (!activePayment || qrAmount <= 0) {
-        setQrCodeDataUrl(null);
         return;
       }
 
       const payload = [
-        "SUITS-PIX",
+        "SUITS-REGISTRO",
         activePayment.id,
         activePayment.itemTitle,
         `valor:${qrAmount.toFixed(2)}`,
@@ -97,22 +91,26 @@ export default function PaymentsClient({ initialPayments }: { initialPayments: P
   }, [activePayment, qrAmount]);
 
   async function handleMarkPaid(paymentId: string) {
+    if (isSaving || !activePayment) return;
+    setIsSaving(true);
+    setMessage("");
     try {
       const response = await fetch("/api/payments", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: paymentId, paidAmount: qrAmount }),
+        body: JSON.stringify({ id: paymentId, paidAmount: qrAmount, expectedPaidAmount: activePayment.paidAmount ?? 0 }),
       });
       if (!response.ok) {
-        throw new Error("Falha ao marcar pagamento como pago.");
+        const result = await response.json();
+        throw new Error(result.message || "Falha ao registrar recebimento.");
       }
       const updatedPayment = await response.json();
       setPayments((prev) => prev.map((record) => (record.id === updatedPayment.id ? updatedPayment : record)));
       setQrCodeDataUrl(null);
       setQrMode("entrada");
     } catch (error) {
-      console.error(error);
-    }
+      setMessage(error instanceof Error ? error.message : "Erro ao registrar recebimento.");
+    } finally { setIsSaving(false); }
   }
 
   function renderPaymentStatus(record: PaymentRecord) {
@@ -128,33 +126,11 @@ export default function PaymentsClient({ initialPayments }: { initialPayments: P
 
   return (
     <AuthGuard>
-      <div className="flex min-h-screen overflow-hidden bg-[#F3F5F8] font-sans dark:bg-slate-950">
+      <div className="staff-workspace flex min-h-screen overflow-hidden bg-[#F3F5F8] font-sans dark:bg-slate-950">
       <Sidebar active="Pagamentos" />
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10">
-        <header className="mb-8 rounded-[32px] bg-[#17182b] p-8 shadow-[0_30px_90px_rgba(23,24,43,0.14)] text-white">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <nav className="text-sm text-slate-200/80 mb-3">Menu &gt; Pagamentos</nav>
-              <h1 className="text-4xl sm:text-5xl font-serif font-semibold flex items-center gap-3">
-                <FiCreditCard className="text-[var(--suit-gold)] text-3xl" />
-                Pagamentos
-              </h1>
-              <p className="text-base text-slate-200/80 mt-2 max-w-2xl">
-                Gerencie cobranças, visualize pedidos e gere comprovantes rápidos para trajes alugados.
-              </p>
-            </div>
-
-            <div className="grid gap-3 sm:grid-flow-col sm:auto-cols-max">
-              <button className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-sm text-white transition hover:bg-white/15">
-                <FiDownload className="mr-2 text-lg" /> Exportar relatorio
-              </button>
-              <button className="inline-flex items-center justify-center rounded-2xl bg-[#17182b] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 ring-1 ring-white/10 transition hover:bg-slate-900">
-                Novo pagamento
-              </button>
-            </div>
-          </div>
-        </header>
+        <StaffHeader eyebrow="Financeiro" title="Pagamentos" description="Acompanhe os valores contratados, registre recebimentos e confira o saldo de cada aluguel."><Link className="customer-outline" href="/operacoes">Consultar relatórios</Link><Link className="customer-button" href="/inventory">Iniciar atendimento</Link></StaffHeader>
 
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <section>
@@ -204,7 +180,7 @@ export default function PaymentsClient({ initialPayments }: { initialPayments: P
                     <button
                       key={record.id}
                       type="button"
-                      onClick={() => setActivePaymentId(record.id)}
+                      onClick={() => { setActivePaymentId(record.id); setQrMode(record.paymentType === "Multa" ? "total" : "entrada"); setQrCodeDataUrl(null); }}
                       className={`w-full px-6 py-5 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800 ${record.paymentType === "Multa" ? "bg-red-50/50 dark:bg-red-500/10" : ""}`}
                     >
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -276,7 +252,7 @@ export default function PaymentsClient({ initialPayments }: { initialPayments: P
                   </div>
                   <div className="rounded-3xl bg-slate-100 p-4 dark:bg-slate-800">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm text-slate-500 dark:text-slate-400">QR de pagamento</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">QR de referência do registro</p>
                       <div className="flex flex-wrap gap-2">
                         {activePayment.paymentType !== "Multa" ? (
                           <>
@@ -293,10 +269,11 @@ export default function PaymentsClient({ initialPayments }: { initialPayments: P
                         </button>
                       </div>
                     </div>
+                    <p className="mt-2 text-xs text-slate-500">Referência interna. Este QR não realiza cobranças Pix. Confirme o recebimento antes de registrar.</p>
                     <div className="mt-3 flex flex-col items-center justify-center rounded-3xl bg-white p-4 text-slate-400 shadow-sm dark:bg-slate-900 dark:text-slate-300">
                       {qrCodeDataUrl ? (
                         <>
-                          <img src={qrCodeDataUrl} alt="QR code do pagamento" className="h-40 w-40 rounded-2xl" />
+                          <Image width={256} height={256} unoptimized src={qrCodeDataUrl} alt="QR de referência do registro" className="h-40 w-40 rounded-2xl" />
                           <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
                             Gerado para R$ {qrAmount.toFixed(2)}
                           </p>
@@ -306,9 +283,11 @@ export default function PaymentsClient({ initialPayments }: { initialPayments: P
                       )}
                     </div>
                   </div>
+                  {message && <p role="alert" className="text-sm text-red-600">{message}</p>}
                   {activePayment.status === "Pendente" ? (
                     <button
                       type="button"
+                      disabled={isSaving || qrAmount <= 0}
                       onClick={() => handleMarkPaid(activePayment.id)}
                       className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#17182b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-900"
                     >
@@ -320,7 +299,7 @@ export default function PaymentsClient({ initialPayments }: { initialPayments: P
                 </div>
               ) : (
                 <div className="rounded-3xl bg-slate-50 p-6 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                  Selecione um pedido para ver detalhes, gerar QR e marcar pagamento.
+                  Selecione um pedido para ver detalhes, consultar referência e registrar recebimento.
                 </div>
               )}
             </div>

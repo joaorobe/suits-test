@@ -1,3 +1,4 @@
+import { api } from "../../../lib/api";
 import { NextResponse } from "next/server";
 import { getCostureiras } from "../../../lib/data";
 
@@ -10,7 +11,7 @@ const NO_STORE_HEADERS = {
   Expires: "0",
 };
 
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   const url = new URL(request.url);
   const role = url.searchParams.get("role");
 
@@ -21,3 +22,5 @@ export async function GET(request: Request) {
 
   return NextResponse.json({ message: "Role inválida." }, { status: 400 });
 }
+
+export const GET = api("admin", handleGET);

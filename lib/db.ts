@@ -1,22 +1,20 @@
+import { migrateEnhancements } from './enhancements-migration';
 import { Pool, type PoolClient } from "pg";
-
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  throw new Error("Missing DATABASE_URL environment variable.");
-}
+import { hashPassword } from "./passwords.mjs";
+import { migrateCustomers } from './customer-migration';
 
 const pool = new Pool({
-  connectionString,
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  connectionString: process.env.DATABASE_URL,
 });
 
 let initializationPromise: Promise<void> | null = null;
 
 async function initDatabase() {
+  if (!process.env.DATABASE_URL) throw new Error('Defina DATABASE_URL em .env.local antes de acessar o banco.');
   const client = await pool.connect();
   try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(73194021)");
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id text PRIMARY KEY,
@@ -139,6 +137,58 @@ async function initDatabase() {
     await client.query(`
       ALTER TABLE return_orders ADD COLUMN IF NOT EXISTS laundry_status text;
     `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS schema_migrations (version text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now());
+      CREATE TABLE IF NOT EXISTS sessions (
+        token_hash text PRIMARY KEY,
+        user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expires_at timestamptz NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS sessions_expiry_idx ON sessions(expires_at);
+      CREATE TABLE IF NOT EXISTS clients (
+        id text PRIMARY KEY, name text NOT NULL, phone text NOT NULL, email text NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE TABLE IF NOT EXISTS rentals (
+        id text PRIMARY KEY, client_id text NOT NULL REFERENCES clients(id),
+        inventory_id text NOT NULL REFERENCES inventory(id),
+        plan text NOT NULL CHECK (plan IN ('Diário', 'Semanal')),
+        amount numeric NOT NULL CHECK (amount > 0),
+        due_on date NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), returned_at timestamptz
+      );
+      ALTER TABLE payments ADD COLUMN IF NOT EXISTS rental_id text REFERENCES rentals(id);
+      ALTER TABLE return_orders ADD COLUMN IF NOT EXISTS rental_id text REFERENCES rentals(id);
+      ALTER TABLE return_orders ADD COLUMN IF NOT EXISTS due_on date;
+      ALTER TABLE tailor_orders ADD COLUMN IF NOT EXISTS rental_id text REFERENCES rentals(id);
+      ALTER TABLE tailor_orders ADD COLUMN IF NOT EXISTS confirmed_at timestamptz;
+      CREATE INDEX IF NOT EXISTS payments_rental_idx ON payments(rental_id);
+      CREATE INDEX IF NOT EXISTS returns_rental_idx ON return_orders(rental_id);
+    `);
+    const migrated = await client.query("SELECT 1 FROM schema_migrations WHERE version = '001_secure_baseline'");
+    if (!migrated.rowCount) {
+      const users = await client.query<{ id: string; password: string }>("SELECT id, password FROM users");
+      for (const user of users.rows) {
+        if (!user.password.startsWith('scrypt$')) {
+          await client.query("UPDATE users SET password = $1 WHERE id = $2", [await hashPassword(user.password), user.id]);
+        }
+      }
+      const legacyDates = await client.query('SELECT order_id, due_date FROM return_orders WHERE due_on IS NULL');
+      for (const row of legacyDates.rows) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(row.due_date)) {
+          const parsed = new Date(row.due_date + 'T12:00:00Z');
+          if (!Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === row.due_date) {
+            await client.query('UPDATE return_orders SET due_on=$1 WHERE order_id=$2', [row.due_date, row.order_id]);
+          }
+        }
+      }
+      await client.query("INSERT INTO schema_migrations(version) VALUES ('001_secure_baseline')");
+    }
+    await migrateCustomers(client);
+    await migrateEnhancements(client);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
   } finally {
     client.release();
   }
@@ -146,7 +196,7 @@ async function initDatabase() {
 
 export async function query(text: string, params?: unknown[]) {
   if (!initializationPromise) {
-    initializationPromise = initDatabase();
+    initializationPromise = initDatabase().catch(error => { initializationPromise = null; throw error; });
   }
   await initializationPromise;
   return pool.query(text, params);
@@ -154,7 +204,7 @@ export async function query(text: string, params?: unknown[]) {
 
 export async function withTransaction<T>(operation: (client: PoolClient) => Promise<T>) {
   if (!initializationPromise) {
-    initializationPromise = initDatabase();
+    initializationPromise = initDatabase().catch(error => { initializationPromise = null; throw error; });
   }
   await initializationPromise;
 
@@ -171,3 +221,5 @@ export async function withTransaction<T>(operation: (client: PoolClient) => Prom
     client.release();
   }
 }
+
+export async function closeDatabase() { await pool.end(); }

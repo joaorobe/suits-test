@@ -1,13 +1,39 @@
 @import "tailwindcss";
 
+.customer-portal { background: var(--background); color: var(--foreground); }
+.customer-card { border: 1px solid #e2e8f0; border-radius: 24px; background: var(--suit-surface); }
+.theme-dark .customer-card { border-color: #334155; }
+.customer-title { margin-top: .6rem; font-family: Georgia,serif; font-size: clamp(1.8rem,4vw,2.7rem); line-height: 1.15; }
+.customer-eyebrow { font-size: .68rem; letter-spacing: .2em; text-transform: uppercase; color: #856514; font-weight: 600; }
+.theme-dark .customer-eyebrow { color: #e3c56f; }
+.customer-label { display: flex; flex-direction: column; gap: .5rem; font-size: .82rem; font-weight: 600; }
+.customer-input { width: 100%; min-height: 46px; border: 1px solid #cbd5e1; border-radius: 12px; padding: .7rem .85rem; background: var(--suit-surface); color: var(--foreground); font-size: .9rem; font-weight: 400; }
+.customer-button,.customer-outline { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; gap: .5rem; border-radius: 12px; padding: .75rem 1.2rem; font-size: .85rem; font-weight: 600; cursor: pointer; }
+.customer-button { background: #e3c56f; color: #17182b; border: 1px solid #cba948; }
+.customer-button:hover { background: #d6b65b; }
+.customer-outline { background: transparent; border: 1px solid #94a3b8; }
+.customer-link { color: #805d0b; font-weight: 600; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.theme-dark .customer-link { color: #ead18d; }
+.customer-badge { display: inline-block; border-radius: 20px; background: #f5ecd4; color: #624810; padding: .35rem .7rem; font-size: .72rem; font-weight: 600; }
+.theme-dark .customer-badge { background: #3d321b; color: #f5df9f; }
+.customer-alert { padding: 1rem 1.25rem; border: 1px solid #d5b65c; border-radius: 14px; background: #fffbeb; color: #694b0b; font-size: .85rem; line-height: 1.65; }
+.theme-dark .customer-alert { background: #302816; color: #f3dfa6; border-color: #806b31; }
+.customer-icon { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 50%; background: #ffffff0d; color: white; }
+.customer-portal :is(a,button,input,select,textarea):focus-visible,.customer-register :is(a,button,input):focus-visible,.customer-input:focus-visible,.customer-button:focus-visible,.customer-outline:focus-visible { outline: 3px solid #b18b24; outline-offset: 3px; }
+.customer-portal button:disabled,.customer-register button:disabled,.customer-button:disabled,.customer-outline:disabled { opacity: .55; cursor: not-allowed; }
+.customer-nav { padding-bottom: env(safe-area-inset-bottom); }
+.customer-skip { position: fixed; top: -100px; left: 1rem; z-index: 100; padding: .8rem; background: white; color: #17182b; }
+.customer-skip:focus { top: 1rem; }
+body:has(.customer-portal) .app-floating-logo,body:has(.customer-register) .app-floating-logo { display: none; }
+@media (prefers-reduced-motion: reduce) { .customer-portal *,.customer-register * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
 @custom-variant dark (&:where(.theme-dark, .theme-dark *));
 
 :root {
   --background: #f5f7fa;
   --foreground: #0f1724;
 
-  /* Brand colors */
-  --suit-navy: #0b2740; /* deep elegant blue */
+  --suit-navy: #0b2740;
   --suit-gold: #d4af37;
   --suit-surface: #ffffff;
   --suit-muted: #f3f4f6;
@@ -98,3 +124,54 @@ body {
 :root.theme-dark textarea::placeholder {
   color: #94a3b8;
 }
+
+.staff-workspace { background: var(--background); color: var(--foreground); }
+.staff-workspace main { min-width: 0; }
+.staff-header { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 1rem 0 1.8rem; margin-bottom: 1.5rem; border-bottom: 1px solid #cbd5e1; }
+.staff-header h1 { margin-top: .65rem; font-family: Georgia,serif; font-size: clamp(1.85rem,3vw,2.6rem); line-height: 1.15; }
+.staff-description { max-width: 44rem; margin-top: .8rem; font-size: .9rem; line-height: 1.7; color: #475569; }
+.staff-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; flex-shrink: 0; }
+.staff-shortcuts { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .8rem; margin-bottom: 1.8rem; }
+.staff-shortcuts a { display: flex; justify-content: space-between; align-items: center; gap: .5rem; padding: 1rem; border: 1px solid #cbd5e1; border-radius: 14px; font-size: .85rem; background: var(--suit-surface); }
+.staff-task-summary { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 1rem; margin-bottom: 1.8rem; }
+.staff-workspace main section > .rounded-\[28px\], .staff-workspace main section > .rounded-\[32px\] { border: 1px solid #e2e8f0; border-radius: 24px; box-shadow: 0 4px 18px rgb(15 23 42 / .03); }
+#staff-navigation { background: var(--suit-surface); box-shadow: 0 8px 30px rgb(15 23 42 / .08); }
+#staff-navigation a[aria-current="page"] { box-shadow: inset 3px 0 #e3c56f; border-radius: 12px; }
+.staff-workspace :is(a,button,input,select,textarea):focus-visible { outline: 3px solid #b18b24; outline-offset: 3px; }
+.staff-workspace button:disabled { opacity: .6; cursor: not-allowed; }
+.theme-dark .staff-description { color: #cbd5e1; }
+.theme-dark :is(.staff-header,.staff-shortcuts a,.staff-workspace main section > .rounded-\[28px\],.staff-workspace main section > .rounded-\[32px\]) { border-color: #334155; }
+@media (max-width: 1100px) { .staff-header { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 767px) {
+  .staff-workspace main { padding-top: 5rem; }
+  .staff-shortcuts { grid-template-columns: 1fr; }
+  .staff-task-summary { grid-template-columns: repeat(2,minmax(0,1fr)); gap: .75rem; }
+}
+@media (prefers-reduced-motion: reduce) { .staff-workspace * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+.staff-workspace { font-family: var(--font-geist-sans),Arial,sans-serif; }
+.staff-workspace main > header:not(.staff-header) { border-radius: 24px; box-shadow: none; }
+.staff-workspace main :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea) { border-radius: 12px; min-height: 44px; }
+.staff-workspace main :is(button,a):not(.customer-link) { min-height: 44px; }
+.staff-workspace :is(table) { font-size: .875rem; }
+.staff-workspace :is(th,td) { vertical-align: top; }
+.staff-workspace table th { letter-spacing: .03em; }
+.staff-workspace .shadow-2xl { box-shadow: 0 8px 32px rgb(15 23 42 / .08); }
+.staff-table-scroll { overflow-x: auto; border: 1px solid #cbd5e1; border-radius: 12px; }
+.staff-table { width: 100%; border-collapse: collapse; text-align: left; }
+.staff-table :is(th,td) { padding: 1rem; border-bottom: 1px solid #cbd5e1; }
+.staff-table thead { background: var(--suit-muted); }
+.staff-table tbody th { font-weight: 500; }
+.staff-dialog { margin: auto; padding: 0; max-width: min(95vw,48rem); max-height: 92dvh; overflow: auto; border: 0; border-radius: 24px; background: var(--suit-surface); color: var(--foreground); }
+.staff-dialog-content { display: flex; justify-content: center; }
+.staff-dialog-content > div { max-height: none; border: 0; box-shadow: none; }
+.staff-dialog::backdrop,.tutorial-dialog::backdrop { background: rgb(8 18 35 / .65); }
+.guided-help { position: fixed; z-index: 45; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom)); background: var(--suit-surface); color: var(--foreground); box-shadow: 0 3px 16px rgb(0 0 0 / .1); }
+body:has(.customer-portal) .guided-help { bottom: calc(5.6rem + env(safe-area-inset-bottom)); }
+.tutorial-dialog { margin: auto; max-width: min(92vw,30rem); max-height: 85dvh; padding: 0; color: var(--foreground); }
+.tutorial-highlight { outline: 3px solid #b18b24 !important; outline-offset: 3px; }
+:is(.staff-dialog,.tutorial-dialog) :is(a,button,input,select,textarea):focus-visible { outline: 3px solid #b18b24; outline-offset: 3px; }
+.theme-dark :is(.staff-table-scroll,.staff-table th,.staff-table td) { border-color: #334155; }
+@media (min-width:768px) { body:has(.customer-portal) .guided-help { bottom: 1rem; } }
+
+body:has(.staff-workspace) .app-floating-logo { display: none; }

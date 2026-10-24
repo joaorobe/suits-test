@@ -1,136 +1,122 @@
 # Suits
 
-Sistema web para gerenciamento de aluguel de trajes, inventário, pagamentos, devoluções e pedidos de ajuste/costura.
-
-O projeto foi desenvolvido com Next.js, React, Tailwind CSS e PostgreSQL. Também possui configuração PWA para uso em celular.
-
-## Funcionalidades
-
-- Login com perfis de administrador e costureira.
-- Dashboard com métricas e atividades recentes.
-- Controle de inventário de trajes.
-- Registro de reservas e pagamentos.
-- Gestão de devoluções e lavanderia.
-- Envio de trajes para ajuste/costura.
-- Painel da costureira com status dos pedidos.
-- Configurações com alternância entre tema claro e escuro.
-- Suporte PWA para instalação no celular.
+Sistema para gestão de aluguel de trajes, reservas, ajustes de costura, pagamentos, devoluções e lavanderia.
 
 ## Tecnologias
 
-- Next.js 16
-- React 19
-- TypeScript
-- Tailwind CSS
-- PostgreSQL
-- `pg`
-- `qrcode`
-- `react-icons`
+Next.js 16, React 19, TypeScript, Tailwind CSS 4 e PostgreSQL. Suporte a instalação como PWA e temas claro e escuro.
 
-## Requisitos
+## Executar com dados de demonstração
 
-- Node.js instalado
-- npm instalado
-- Banco PostgreSQL disponível
+Requer Node.js 22 ou superior.
 
-## Variáveis de Ambiente
-
-Crie um arquivo `.env` na raiz do projeto com:
-
-```env
-DATABASE_URL=postgres://usuario:senha@host:porta/banco
-```
-
-O projeto cria e atualiza automaticamente as tabelas principais ao iniciar, usando a conexão definida em `DATABASE_URL`.
-
-## Instalação
-
-```bash
+```sh
 npm install
+npm run dev:demo
 ```
 
-## Rodando em Desenvolvimento
+Abra o endereço exibido no terminal, normalmente `http://127.0.0.1:3001`. O comando inicia um PostgreSQL local sem exigir configuração de `DATABASE_URL`.
 
-```bash
+Todas as contas abaixo usam a senha `Suits123!`:
+
+| Perfil | CPF |
+| --- | --- |
+| Administrador | 123.456.789-10 |
+| Costureira | 111.222.333-44 |
+| Cliente | 987.654.321-00 |
+
+É possível cadastrar novos clientes. Os dados são preservados entre execuções. No Windows, ficam em `%LOCALAPPDATA%/Suits/demo-postgres-18`; nos demais sistemas, em `~/.local/share/suits/demo-postgres-18`.
+
+Pressione `Ctrl+C` para encerrar. O modo de demonstração não modifica os arquivos de ambiente nem acessa o banco configurado para produção.
+
+## Configurar o banco
+
+Copie `.env.example` para `.env.local` e configure `DATABASE_URL` com a conexão PostgreSQL. Para conexões remotas, utilize as opções TLS fornecidas pelo provedor.
+
+```sh
+npm install
+npm run db:init
 npm run dev
 ```
 
-Depois acesse:
+A aplicação estará disponível em `http://localhost:3000`. As migrações também são aplicadas no primeiro acesso ao banco.
 
-```txt
-http://localhost:3000
-```
+O arquivo `seeds.sql` contém dados de exemplo para desenvolvimento, com senha `senha123`. Sua execução é manual e deve ocorrer apenas em uma base de testes.
 
-## Scripts
+Para cadastrar ou atualizar uma costureira, defina `USER_CPF`, `USER_NAME` e `USER_PASSWORD` no ambiente e execute `node create-costureira-user.js`.
 
-```bash
-npm run dev
-```
+## Funcionalidades
 
-Inicia o servidor de desenvolvimento.
+- **Administrador:** inventário, atendimento presencial, solicitações online, acompanhamento da costura, pagamentos, devoluções, medidas, calendário, manutenção, alertas e relatórios.
+- **Costureira:** ajustes atribuídos, atualização do andamento, prazos de retirada e avaliações dos clientes vinculados aos seus ajustes ativos.
+- **Cliente:** cadastro, catálogo, recomendações de trajes, solicitações de reserva, acompanhamento, histórico, perfil, consulta de medidas e avisos.
+- Tutorial opcional por perfil, disponível pelo botão **Ajuda**.
+- Relatórios de utilização dos trajes com exportação CSV.
 
-```bash
-npm run build
-```
+## Reservas e disponibilidade
 
-Gera a versão de produção.
+O cliente consulta as datas e envia uma solicitação para análise. A solicitação bloqueia o período até aprovação, recusa ou cancelamento. A aprovação confirma a reserva, sem cobrança automática.
 
-```bash
-npm run start
-```
+Cada registro de inventário representa uma peça física. A disponibilidade considera retirada, devolução, preparação, higienização, manutenção e operações atrasadas. Os dias de retirada e devolução pertencem ao período reservado.
 
-Executa a aplicação em modo produção após o build.
+Os prazos de preparação e higienização são configurados por traje em **Operações**. A preparação pode começar na janela configurada; a retirada deve ocorrer dentro do período reservado. A conclusão da lavanderia exige confirmação do administrador.
 
-```bash
+As datas utilizam o fuso `America/Sao_Paulo`. O plano diário vence no mesmo dia e o semanal em sete dias. Recebimentos são registrados manualmente; o QR exibido é uma referência interna, sem integração bancária.
+
+## Recomendações e medidas
+
+Em **Operações**, o administrador informa eventos, estilos e medidas reais de cada traje. No catálogo, o cliente pode ordenar as peças pela compatibilidade com suas preferências, orçamento, tamanho e medidas profissionais disponíveis.
+
+Os pesos ficam em `lib/recommendations.ts`. A comparação corporal utiliza a avaliação mais recente e as medidas cadastradas do traje. Quando faltam medidas, os demais critérios continuam disponíveis. A recomendação não substitui a avaliação de caimento pela alfaiataria.
+
+Em **Medidas**, cada avaliação registra data e profissional, preservando as anteriores. Clientes podem consultar apenas suas próprias medidas. Costureiras acessam somente clientes dos ajustes ativos atribuídos a elas.
+
+## Segurança e notificações
+
+As sessões utilizam cookies HttpOnly e expiração no servidor. APIs e páginas verificam autenticação, perfil e propriedade dos dados. Senhas são armazenadas com scrypt.
+
+Cadastros com contatos semelhantes a clientes existentes exigem conferência de identidade pelo administrador antes de liberar histórico e medidas.
+
+Os avisos internos incluem alterações de status, retirada e devolução. São atualizados ao consultar os dados; não há envio externo de mensagens ou notificações push.
+
+O PWA mantém recursos estáticos e a página offline em cache. Páginas autenticadas e APIs exigem conexão e não são armazenadas no cache persistente.
+
+## Comandos
+
+| Comando | Finalidade |
+| --- | --- |
+| `npm run dev` | Desenvolvimento com banco configurado |
+| `npm run dev:demo` | Desenvolvimento com dados locais de demonstração |
+| `npm run build` | Compilação de produção |
+| `npm run start` | Servidor de produção |
+| `npm run db:init` | Inicialização e migrações do banco |
+| `npm run lint` | Verificação de código |
+| `npm run typecheck` | Verificação de tipos |
+| `npm test` | Testes automatizados |
+| `npm run demo:check` | Verificação das contas de demonstração |
+| `npm run verify:integration` | Testes com banco temporário, compilação e testes HTTP |
+
+A compilação utiliza fontes Google e pode precisar de acesso à internet. Em produção, utilize HTTPS.
+
+## Testes
+
+```sh
 npm run lint
+npm run typecheck
+npm run verify:integration
 ```
 
-Executa a verificação de lint.
+A verificação completa cria um PostgreSQL temporário e um servidor local exclusivos para testes, sem utilizar o banco compartilhado ou a demonstração. Os processos criados são encerrados ao terminar.
 
-## Principais Rotas
+Para verificar apenas regras e integração com banco, execute `npm run verify:integration -- --database-only`.
 
-- `/login` - autenticação.
-- `/dashboard` - visão geral administrativa.
-- `/inventory` - inventário de trajes.
-- `/costureira-admin` - administração dos pedidos de costura.
-- `/costureira` - painel da costureira.
-- `/devolucao` - controle de devoluções.
-- `/pagamentos` - pagamentos e QR Code.
-- `/settings` - configurações do sistema.
-- `/offline` - tela de fallback do PWA.
+Também é possível definir `TEST_DATABASE_URL` e `TEST_APP_URL` para executar `npm test` contra ambientes descartáveis. Os testes gravam dados e não devem utilizar uma base de produção.
 
-## PWA
+## Estrutura
 
-O projeto inclui:
-
-- `public/manifest.webmanifest`
-- `public/sw.js`
-- ícones em PNG para instalação
-- registro do service worker em `app/pwa-register.tsx`
-
-
-## Estrutura Básica
-
-```txt
-app/
-  api/              Rotas da API
-  components/       Componentes compartilhados
-  dashboard/        Dashboard administrativo
-  inventory/        Inventário
-  pagamentos/       Pagamentos
-  devolucao/        Devoluções
-  costureira/       Painel da costureira
-  settings/         Configurações
-lib/
-  db.ts             Conexão e inicialização do banco
-  data.ts           Funções de acesso aos dados
-  types.ts          Tipos TypeScript
-public/
-  manifest.webmanifest
-  sw.js
-```
-
-## Observações
-
-- A autenticação atual usa dados salvos em cookie/localStorage no cliente.
-- O banco é inicializado automaticamente em `lib/db.ts`.
+- `app/`: páginas, componentes e APIs.
+- `lib/`: autenticação, permissões, regras de negócio, consultas e migrações.
+- `public/`: imagens, ícones e service worker.
+- `scripts/`: inicialização, demonstração e verificação.
+- `tests/`: testes de regras, banco e APIs.
+- `proxy.ts`: proteção e redirecionamento das páginas por perfil.

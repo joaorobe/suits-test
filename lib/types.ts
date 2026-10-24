@@ -3,7 +3,7 @@ export type InventoryItem = {
   title: string;
   subtitle: string;
   sku: string;
-  status: "Disponível" | "Costureira" | "Alugado" | "Lavanderia";
+  status: "Disponível" | "Costureira" | "Alugado" | "Lavanderia" | "Reservado";
   size: number;
   color: string;
   location: string;
@@ -15,6 +15,9 @@ export type InventoryItem = {
 };
 
 export type TailorOrder = {
+  pickupOn?: string;
+  rentalId?: string;
+  confirmedAt?: string;
   id: string;
   inventoryId: string;
   assignedTo: string;
@@ -29,6 +32,7 @@ export type TailorOrder = {
 };
 
 export type PaymentRecord = {
+  rentalId?: string;
   id: string;
   itemId: string;
   itemTitle: string;
@@ -56,6 +60,7 @@ export type TailorTask = {
 };
 
 export type ReturnOrder = {
+  rentalId?: string;
   order: string;
   client: string;
   itemId: string;
@@ -95,7 +100,7 @@ export type User = {
   cpf: string;
   password: string;
   name: string;
-  role: "admin" | "costureira";
+  role: "admin" | "costureira" | "cliente";
 };
 
 export type LoginRequest = {

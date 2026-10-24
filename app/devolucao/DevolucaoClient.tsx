@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { FiSearch, FiFilter, FiUser } from "react-icons/fi";
+import { FiFilter, FiUser } from "react-icons/fi";
+import StaffDialog from "../components/StaffDialog";
+import { StaffHeader } from "../components/StaffPanel";
 import Sidebar from "../components/Sidebar";
 import AuthGuard from "../components/AuthGuard";
 import type { ReturnOrder } from "../../lib/types";
@@ -37,7 +39,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
       ? "text-orange-600"
       : label === "Atrasados"
       ? "text-red-600"
-      : label === "Finalizados (Hoje)"
+      : label === "Finalizados"
       ? "text-slate-500"
       : "text-emerald-600";
 
@@ -64,6 +66,8 @@ function StatusBadge({ status }: { status: ReturnOrder["status"] }) {
 }
 
 export default function DevolucaoClient({ initialOrders }: { initialOrders: ReturnOrder[] }) {
+  const [message, setMessage] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const [tab, setTab] = useState("Todas");
   const [orders, setOrders] = useState<ReturnOrder[]>(initialOrders);
   const [selectedOrder, setSelectedOrder] = useState<ReturnOrder | null>(null);
@@ -86,12 +90,28 @@ export default function DevolucaoClient({ initialOrders }: { initialOrders: Retu
     );
   }, [search, tab, orders]);
 
+  async function correctDate(order: ReturnOrder, dueDate: string) {
+    if (!dueDate || isSaving) return;
+    setIsSaving(true);
+    setMessage("");
+    try {
+      const response = await fetch('/api/devolucao', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order: order.order, dueDate }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Erro ao corrigir data.');
+      setOrders(prev => prev.map(item => item.order === result.order ? result : item));
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Erro ao corrigir data.'); }
+    finally { setIsSaving(false); }
+  }
+
   async function handleConfirm(order: ReturnOrder) {
+    if (isSaving) return;
+    setIsSaving(true);
+    setMessage("");
     const destination = DESTINATION_OPTIONS.find((option) => option.value === returnDestination) ?? DESTINATION_OPTIONS[0];
-    const completedOrder: ReturnOrder = {
+    let completedOrder: ReturnOrder = {
       ...order,
       status: "Devolvido",
-      returnedDate: new Date().toLocaleString(),
+      returnedDate: new Date().toISOString(),
       penalty: hasDamage ? `R$ ${damageFee.toFixed(2)}` : "-",
       damageFee: hasDamage ? damageFee : 0,
       laundryStatus: destination.laundryStatus,
@@ -114,54 +134,35 @@ export default function DevolucaoClient({ initialOrders }: { initialOrders: Retu
         }),
       });
       if (!response.ok) {
-        throw new Error("Falha ao atualizar devolução.");
+        const result = await response.json();
+        throw new Error(result.message || "Falha ao atualizar devolução.");
       }
 
+      completedOrder = await response.json();
       setOrders((prev) => prev.map((item) => (item.order === order.order ? completedOrder : item)));
       setSelectedOrder(null);
       setHasDamage(false);
       setDamageFee(50);
       setReturnDestination("inventario");
     } catch (error) {
-      console.error(error);
-    }
+      setMessage(error instanceof Error ? error.message : "Erro ao confirmar devolução.");
+    } finally { setIsSaving(false); }
   }
 
   return (
     <AuthGuard>
-      <div className="flex min-h-screen overflow-hidden bg-[#F3F5F8] font-sans">
+      <div className="staff-workspace flex min-h-screen overflow-hidden bg-[#F3F5F8] font-sans">
         <Sidebar active="Devolução" />
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10">
-          <header className="mb-8 rounded-[32px] bg-[#17182b] p-8 shadow-[0_30px_90px_rgba(23,24,43,0.14)] text-white">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h1 className="text-4xl font-serif font-semibold">Gestão de Devoluções</h1>
-                <p className="mt-2 max-w-2xl text-sm text-slate-200">Acompanhe e gerencie devoluções, multas e itens em atraso com clareza e controle.</p>
-              </div>
+          <StaffHeader eyebrow="Pós-locação" title="Gestão de devoluções" description="Confira os prazos, registre a devolução e encaminhe o traje para higienização."><label className="customer-label">Buscar pedido ou cliente<input value={search} onChange={event=>setSearch(event.target.value)} placeholder="Nome ou pedido" className="customer-input"/></label></StaffHeader>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-[0_10px_25px_rgba(15,23,42,0.08)]">
-                  <FiSearch className="text-slate-400" />
-                  <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Buscar pedido ou cliente"
-                    className="w-full bg-transparent text-sm text-[#17182b] outline-none"
-                  />
-                </div>
-                <button className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#17182b] shadow-[0_10px_25px_rgba(15,23,42,0.08)] transition hover:bg-slate-100">
-                  <FiFilter /> Filtrar
-                </button>
-              </div>
-            </div>
-          </header>
-
+          {message && <p role="alert" className="mb-4 text-red-600">{message}</p>}
           <div className="grid grid-cols-1 gap-6 mb-6 xl:grid-cols-4">
             <StatCard label="Total Atribuído" value={orders.length} />
             <StatCard label="Aguardando" value={orders.filter((order) => order.status === "Aguardando").length} />
             <StatCard label="Atrasados" value={orders.filter((order) => order.status === "Atrasado").length} />
-            <StatCard label="Finalizados (Hoje)" value={orders.filter((order) => order.status === "Devolvido").length} />
+            <StatCard label="Devolvidos" value={orders.filter((order) => order.status === "Devolvido").length} />
           </div>
 
           <div className="bg-white rounded-[28px] p-5 shadow-[0_20px_40px_rgba(15,23,42,0.08)] mb-8">
@@ -225,10 +226,15 @@ export default function DevolucaoClient({ initialOrders }: { initialOrders: Retu
                           <div className="text-sm text-slate-700">{s.item}</div>
                         </td>
                         <td className="px-6 py-5 align-top">
-                          <div className="font-medium text-slate-700">{s.dueDate}</div>
+                          <div className="font-medium text-slate-700">{/^\d{4}-\d{2}-\d{2}$/.test(s.dueDate) ? s.dueDate.split("-").reverse().join("/") : `Revisar data: ${s.dueDate}`}</div>
+                          {s.status !== 'Devolvido' && !/^\d{4}-\d{2}-\d{2}$/.test(s.dueDate) && (
+                            <label className="mt-2 block text-xs text-slate-500">Informe a data correta
+                              <input aria-label="Data prevista correta" type="date" disabled={isSaving} className="mt-1 block rounded border p-1" onChange={event => void correctDate(s, event.target.value)} />
+                            </label>
+                          )}
                           {s.returnedDate ? (
                             <div suppressHydrationWarning className="text-xs text-red-500 mt-1">
-                              {s.returnedDate}
+                              {new Date(s.returnedDate).toLocaleString("pt-BR")}
                             </div>
                           ) : null}
                         </td>
@@ -268,14 +274,14 @@ export default function DevolucaoClient({ initialOrders }: { initialOrders: Retu
       </div>
 
       {selectedOrder ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+        <StaffDialog label="Confirmar devolução" onClose={() => setSelectedOrder(null)}>
           <div className="w-full max-w-xl rounded-[32px] border border-slate-200 bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Confirmar devolução</p>
                 <h3 className="mt-2 text-2xl font-semibold text-[#17182b]">{selectedOrder.item}</h3>
               </div>
-              <button onClick={() => setSelectedOrder(null)} className="rounded-full bg-slate-100 p-2 text-slate-600 transition hover:bg-slate-200">×</button>
+              <button aria-label="Fechar devolução" onClick={() => setSelectedOrder(null)} className="rounded-full bg-slate-100 p-2 text-slate-600 transition hover:bg-slate-200">×</button>
             </div>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -321,10 +327,10 @@ export default function DevolucaoClient({ initialOrders }: { initialOrders: Retu
 
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={() => setSelectedOrder(null)} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">Cancelar</button>
-              <button onClick={() => handleConfirm(selectedOrder)} className="rounded-2xl bg-[#17182b] px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-900">Confirmar devolução</button>
+              <button disabled={isSaving} onClick={() => handleConfirm(selectedOrder)} className="rounded-2xl bg-[#17182b] px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-900">Confirmar devolução</button>
             </div>
           </div>
-        </div>
+        </StaffDialog>
       ) : null}
     </AuthGuard>
   );

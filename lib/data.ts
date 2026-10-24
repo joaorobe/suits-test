@@ -1,7 +1,10 @@
+import type { QueryResultRow } from "pg";
 import { query } from "./db";
+import { verifyPassword } from "./passwords.mjs";
+import { allowedUpdates } from "./rules";
 import { DashboardActivity, DashboardMetric, DashboardOverview, InventoryItem, PaymentRecord, ReturnOrder, TailorTask, TailorOrder, User } from "./types";
 
-function rowToInventoryItem(row: any): InventoryItem {
+export function rowToInventoryItem(row: QueryResultRow): InventoryItem {
   return {
     id: row.id,
     title: row.title,
@@ -15,12 +18,15 @@ function rowToInventoryItem(row: any): InventoryItem {
     image: row.image,
     action: row.action,
     priceCategory: row.price_category || undefined,
-    price: row.price ? Number(row.price) : undefined,
+    price: row.price != null ? Number(row.price) : undefined,
   };
 }
 
-function rowToTailorOrder(row: any): TailorOrder {
+function rowToTailorOrder(row: QueryResultRow): TailorOrder {
   return {
+    pickupOn: row.pickup_on ?? undefined,
+    rentalId: row.rental_id ?? undefined,
+    confirmedAt: row.confirmed_at ?? undefined,
     id: row.id,
     inventoryId: row.inventory_id,
     assignedTo: row.assigned_to,
@@ -35,7 +41,7 @@ function rowToTailorOrder(row: any): TailorOrder {
   };
 }
 
-function rowToTailorTask(row: any): TailorTask {
+function rowToTailorTask(row: QueryResultRow): TailorTask {
   return {
     id: row.id,
     orderId: row.order_id,
@@ -48,8 +54,9 @@ function rowToTailorTask(row: any): TailorTask {
   };
 }
 
-function rowToReturnOrder(row: any): ReturnOrder {
+function rowToReturnOrder(row: QueryResultRow): ReturnOrder {
   return {
+    rentalId: row.rental_id ?? undefined,
     order: row.order_id,
     client: row.client,
     itemId: row.item_id,
@@ -59,14 +66,15 @@ function rowToReturnOrder(row: any): ReturnOrder {
     status: row.status,
     penalty: row.penalty,
     action: row.action,
-    amountPaid: row.amount_paid ? Number(row.amount_paid) : undefined,
-    damageFee: row.damage_fee ? Number(row.damage_fee) : undefined,
+    amountPaid: row.amount_paid != null ? Number(row.amount_paid) : undefined,
+    damageFee: row.damage_fee != null ? Number(row.damage_fee) : undefined,
     laundryStatus: row.laundry_status || undefined,
   };
 }
 
-function rowToPaymentRecord(row: any): PaymentRecord {
+export function rowToPaymentRecord(row: QueryResultRow): PaymentRecord {
   return {
+    rentalId: row.rental_id ?? undefined,
     id: row.id,
     itemId: row.item_id,
     itemTitle: row.item_title,
@@ -147,6 +155,7 @@ export async function addInventory(item: InventoryItem) {
 }
 
 export async function updateInventory(id: string, updates: Partial<InventoryItem>) {
+  allowedUpdates(updates, ['title', 'subtitle', 'sku', 'status', 'size', 'color', 'location', 'stock', 'image', 'action', 'priceCategory', 'price']);
   const queryData = buildUpdateQuery("inventory", "id", id, updates as Record<string, unknown>);
   if (!queryData) return getInventoryById(id);
   const result = await query(queryData.queryText, queryData.values);
@@ -169,7 +178,9 @@ export async function updateTailorTask(id: string, status: TailorTask["status"])
 }
 
 export async function getReturnOrders() {
-  const result = await query(`SELECT * FROM return_orders ORDER BY order_id ASC`);
+  const result = await query(`SELECT *, COALESCE(to_char(due_on, 'YYYY-MM-DD'), due_date) AS due_date,
+    CASE WHEN status != 'Devolvido' AND due_on < (now() AT TIME ZONE 'America/Sao_Paulo')::date THEN 'Atrasado' ELSE status END AS status
+    FROM return_orders ORDER BY order_id DESC`);
   return result.rows.map(rowToReturnOrder);
 }
 
@@ -185,6 +196,7 @@ export async function createReturnOrder(order: Omit<ReturnOrder, "order">) {
 }
 
 export async function updateReturnOrder(order: string, updates: Partial<ReturnOrder>) {
+  allowedUpdates(updates, ['status', 'returnedDate', 'dueDate', 'penalty', 'amountPaid', 'damageFee', 'laundryStatus', 'action']);
   const queryData = buildUpdateQuery("return_orders", "order_id", order, updates as Record<string, unknown>);
   if (!queryData) return getReturnOrders();
   const result = await query(queryData.queryText, queryData.values);
@@ -208,6 +220,7 @@ export async function createPayment(payment: Omit<PaymentRecord, "createdAt">) {
 }
 
 export async function updatePayment(id: string, updates: Partial<PaymentRecord>) {
+  allowedUpdates(updates, ['paidAmount', 'status']);
   const queryData = buildUpdateQuery("payments", "id", id, updates as Record<string, unknown>);
   if (!queryData) return getPayments();
   const result = await query(queryData.queryText, queryData.values);
@@ -221,7 +234,7 @@ export async function getCostureiras() {
 
 export async function getDashboardMetrics() {
   function formatCurrency(value: number) {
-    return `R$ ${value.toFixed(2)}`;
+    return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(value);
   }
 
   function parsePossibleDate(value?: string | null) {
@@ -269,11 +282,11 @@ export async function getDashboardMetrics() {
     query(`SELECT COUNT(*)::int AS count FROM inventory`),
     query(`SELECT COUNT(*)::int AS count FROM inventory WHERE status = 'Disponível'`),
     query(`SELECT COUNT(*)::int AS count FROM inventory WHERE status = 'Lavanderia'`),
-    query(`SELECT COUNT(*)::int AS count FROM return_orders WHERE status = 'Aguardando'`),
-    query(`SELECT COUNT(*)::int AS count FROM return_orders WHERE status = 'Atrasado'`),
+    query(`SELECT COUNT(*)::int AS count FROM return_orders WHERE status != 'Devolvido'`),
+    query(`SELECT COUNT(*)::int AS count FROM return_orders WHERE status != 'Devolvido' AND (due_on < (now() AT TIME ZONE 'America/Sao_Paulo')::date OR (due_on IS NULL AND status = 'Atrasado'))`),
     query(`SELECT COUNT(*)::int AS count FROM return_orders WHERE status = 'Devolvido'`),
-    query(`SELECT COUNT(*)::int AS count FROM tailor_tasks WHERE status != 'Finalizado'`),
-    query(`SELECT COUNT(*)::int AS count FROM tailor_tasks WHERE status = 'Aguardando'`),
+    query(`SELECT COUNT(*)::int AS count FROM tailor_orders WHERE status != 'Finalizado'`),
+    query(`SELECT COUNT(*)::int AS count FROM tailor_orders WHERE status = 'Novo'`),
     query(`SELECT COUNT(DISTINCT COALESCE(client_name, client_email, client_phone))::int AS count FROM payments`),
     query(`SELECT COUNT(*)::int AS count FROM payments WHERE created_at::date = CURRENT_DATE`),
     query(`SELECT COUNT(*)::int AS count FROM payments WHERE status = 'Pago' AND updated_at::date = CURRENT_DATE`),
@@ -303,7 +316,7 @@ export async function getDashboardMetrics() {
     { label: "Clientes Ativos", value: activeClients, detail: `Reservas hoje: ${paymentsToday}` },
   ];
 
-  const paymentEvents: ActivityEvent[] = recentPaymentsResult.rows.flatMap((row: any) => {
+  const paymentEvents: ActivityEvent[] = recentPaymentsResult.rows.flatMap((row: QueryResultRow) => {
     const events: ActivityEvent[] = [];
     const createdDate = new Date(row.created_at);
     const updatedDate = new Date(row.updated_at);
@@ -330,7 +343,7 @@ export async function getDashboardMetrics() {
     return events;
   });
 
-  const returnEvents: ActivityEvent[] = recentReturnsResult.rows.map((row: any) => {
+  const returnEvents: ActivityEvent[] = recentReturnsResult.rows.map((row: QueryResultRow) => {
     const eventDate = parsePossibleDate(row.returned_date) || parsePossibleDate(row.due_date);
     if (row.laundry_status === "Em lavanderia") {
       return {
@@ -390,24 +403,25 @@ export async function getDashboardMetrics() {
 export async function authenticateUser(cpf: string, password: string) {
   const normalizedCpf = cpf.replace(/\D/g, "");
   const result = await query(
-    `SELECT id, name, role FROM users WHERE regexp_replace(cpf, '\\D', '', 'g') = $1 AND password = $2`,
-    [normalizedCpf, password]
+    `SELECT id, name, role, password FROM users WHERE regexp_replace(cpf, '\\D', '', 'g') = $1`,
+    [normalizedCpf]
   );
-  if (!result.rows[0]) return null;
-  return result.rows[0] as Pick<User, "id" | "name" | "role">;
+  const row = result.rows[0];
+  if (!row || !await verifyPassword(password, row.password)) return null;
+  return { id: row.id, name: row.name, role: row.role } as Pick<User, "id" | "name" | "role">;
 }
 
 export async function getTailorOrders(assignedTo?: string) {
   if (assignedTo) {
-    const result = await query(`SELECT * FROM tailor_orders WHERE assigned_to = $1 ORDER BY created_at DESC`, [assignedTo]);
+    const result = await query(`SELECT t.*,to_char(q.starts_on,'YYYY-MM-DD') AS pickup_on FROM tailor_orders t LEFT JOIN reservation_requests q ON q.rental_id=t.rental_id WHERE t.assigned_to = $1 ORDER BY t.created_at DESC`, [assignedTo]);
     return result.rows.map(rowToTailorOrder);
   }
-  const result = await query(`SELECT * FROM tailor_orders ORDER BY created_at DESC`);
+  const result = await query(`SELECT t.*,to_char(q.starts_on,'YYYY-MM-DD') AS pickup_on FROM tailor_orders t LEFT JOIN reservation_requests q ON q.rental_id=t.rental_id ORDER BY t.created_at DESC`);
   return result.rows.map(rowToTailorOrder);
 }
 
 export async function getTailorOrderById(id: string) {
-  const result = await query(`SELECT * FROM tailor_orders WHERE id = $1`, [id]);
+  const result = await query(`SELECT t.*,to_char(q.starts_on,'YYYY-MM-DD') AS pickup_on FROM tailor_orders t LEFT JOIN reservation_requests q ON q.rental_id=t.rental_id WHERE t.id = $1`, [id]);
   return result.rows[0] ? rowToTailorOrder(result.rows[0]) : null;
 }
 
@@ -423,6 +437,7 @@ export async function createTailorOrder(order: Omit<TailorOrder, "id" | "created
 }
 
 export async function updateTailorOrder(id: string, updates: Partial<TailorOrder>) {
+  allowedUpdates(updates, ['status', 'notes', 'completedAt']);
   const keys = Object.keys(updates);
   if (keys.length === 0) return getTailorOrderById(id);
 

@@ -1,0 +1,1 @@
+export default function Loading(){return <div role="status" className="customer-card animate-pulse p-8">Carregando sua área...</div>;}

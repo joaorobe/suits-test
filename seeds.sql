@@ -1,19 +1,10 @@
--- Script de dados de teste para Suits - Sistema de Costura
-
--- Limpar dados antigos (CUIDADO: Remove tudo)
--- TRUNCATE TABLE tailor_orders CASCADE;
--- TRUNCATE TABLE users CASCADE;
--- TRUNCATE TABLE inventory CASCADE;
-
--- Inserir usuários
 INSERT INTO users (id, cpf, password, name, role)
 VALUES
-  ('user-admin-1', '123.456.789-10', 'senha123', 'Alfaiate Marcus', 'admin'),
-  ('user-costureira-1', '111.222.333-44', 'senha123', 'Costureira Gladimir', 'costureira'),
-  ('user-costureira-2', '555.666.777-88', 'senha123', 'Costureira Maria', 'costureira')
+  ('user-admin-1', '123.456.789-10', 'scrypt$30f2da765093f273bcfdc438ba458636$26b8f86b30e5f085e8f11d65db5ecd9d21de0c03fbbc32106101d86b452d8cbda2a74bcc7948b204924b0862d36b1bc86efb78233213649ddfe957afb093c924', 'Alfaiate Marcus', 'admin'),
+  ('user-costureira-1', '111.222.333-44', 'scrypt$e5fb0b4d1d95ed12e72669e7c88732b6$f57077886208875dc6536cf5147ae4f663ce05b59661ad68262400aceab449afe4679b5702136c0667b04b4a3ea5b709f3a4cb6eddaf1624e42a44aa145f4bc1', 'Costureira Gladimir', 'costureira'),
+  ('user-costureira-2', '555.666.777-88', 'scrypt$5085d0d9e337405f43718f6ed155519b$c9d90c41f05a6e019e0b3c37dc6ca34cf16578a2e9415af620c2cf2523dd091726033ef48a315c40a0b011725514e03a1ad15427f795581524feff1a1c47592e', 'Costureira Maria', 'costureira')
 ON CONFLICT (id) DO NOTHING;
 
--- Inserir trajes no inventário
 INSERT INTO inventory (id, title, subtitle, sku, status, size, color, location, stock, image, action, price_category, price)
 VALUES
   ('743G', 'Midnight Black', 'Paletó e calça', 'INV-743G', 'Disponível', 42, 'Black', 'Estoque Central', 1, '/terno1.jpg', 'Reservar Traje', 'Terno novo', 290.00),
@@ -23,7 +14,6 @@ VALUES
   ('750M', 'Forest Green', 'Paletó e calça', 'INV-750M', 'Disponível', 38, 'Verde', 'Estoque Central', 1, '/terno1.jpg', 'Reservar Traje', 'Terno novo', 320.00)
 ON CONFLICT (id) DO NOTHING;
 
--- Inserir pedidos de costura
 INSERT INTO tailor_orders (id, inventory_id, assigned_to, adjustment_type, description, measurements, status, notes, created_at, updated_at)
 VALUES
   ('TAO-20250102-001', '744H', 'user-costureira-1', 'Ajuste de Manga', 'Encurtar mangas em 2cm e ajustar ombro', 'MB: 62cm, Comprimento: 75cm, Ombro: 48cm', 'Novo', 'Cliente urgente - evento sábado', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
@@ -32,10 +22,3 @@ VALUES
   ('TAO-20250101-001', '743G', 'user-costureira-1', 'Corte de Barra', 'Cortar calça com barra reta, 2cm mais curta', 'Comprimento: 80cm', 'Finalizado', 'Pronto para entrega - verificado pelo alfaiate', CURRENT_TIMESTAMP - INTERVAL '3 days', CURRENT_TIMESTAMP - INTERVAL '1 hour'),
   ('TAO-20250101-002', '750M', 'user-costureira-2', 'Ajuste de Ombro', 'Reticar ombro e dar mais caimento no braço', 'Ombro: 44cm, Axila: 58cm', 'Novo', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO NOTHING;
-
--- Consultas úteis para testar
--- SELECT * FROM users WHERE role = 'costureira';
--- SELECT * FROM tailor_orders ORDER BY created_at DESC;
--- SELECT * FROM tailor_orders WHERE assigned_to = 'user-costureira-1';
--- SELECT COUNT(*) as total_pedidos FROM tailor_orders;
--- SELECT status, COUNT(*) FROM tailor_orders GROUP BY status;

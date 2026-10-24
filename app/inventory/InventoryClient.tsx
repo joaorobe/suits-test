@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { FiBell, FiBriefcase, FiX, FiPlus, FiUser } from "react-icons/fi";
+import { FiX } from "react-icons/fi";
+import StaffDialog from "../components/StaffDialog";
+import { StaffHeader } from "../components/StaffPanel";
+import Link from "next/link";
 import Sidebar from "../components/Sidebar";
 import AuthGuard from "../components/AuthGuard";
 import type { InventoryItem, PaymentRecord } from "../../lib/types";
@@ -32,6 +35,7 @@ function isValidPhone(value: string) {
 function StatusBadge({ status }: { status: InventoryItem["status"] }) {
   const map: Record<InventoryItem["status"], string> = {
     Disponível: "text-green-500",
+    Reservado: "text-blue-500",
     Costureira: "text-[var(--suit-gold)]",
     Alugado: "text-red-500",
     Lavanderia: "text-orange-400",
@@ -114,6 +118,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
   initialCostureiras: Array<{ id: string; name: string; role: string }>;
 }) {
   const [mounted, setMounted] = useState(false);
+  const [isReserving, setIsReserving] = useState(false);
   const [items, setItems] = useState<InventoryItem[]>(initialItems);
   const [activeTab, setActiveTab] = useState<"Todas" | InventoryItem["status"]>("Disponível");
   const [search, setSearch] = useState("");
@@ -155,7 +160,8 @@ export default function InventoryClient({ initialItems, initialPayments, initial
   const [costureiras] = useState(initialCostureiras);
 
   useEffect(() => {
-    setMounted(true);
+    const id = window.setTimeout(() => setMounted(true), 0);
+    return () => window.clearTimeout(id);
   }, []);
 
   const loadInventoryFromServer = useCallback(async (silent = false) => {
@@ -192,7 +198,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
   }, []);
 
   useEffect(() => {
-    void loadInventoryFromServer(false);
+    const initialSync = window.setTimeout(() => { void loadInventoryFromServer(false); }, 0);
 
     const syncWhenVisible = () => {
       if (document.visibilityState === "visible") {
@@ -213,12 +219,13 @@ export default function InventoryClient({ initialItems, initialPayments, initial
 
     return () => {
       window.clearInterval(intervalId);
+      window.clearTimeout(initialSync);
       document.removeEventListener("visibilitychange", syncWhenVisible);
       window.removeEventListener("focus", syncWhenFocused);
     };
   }, [loadInventoryFromServer]);
 
-  const statusTabs: Array<"Todas" | InventoryItem["status"]> = ["Todas", "Disponível", "Alugado", "Lavanderia", "Costureira"];
+  const statusTabs: Array<"Todas" | InventoryItem["status"]> = ["Todas", "Disponível", "Reservado", "Alugado", "Lavanderia", "Costureira"];
 
   const mergedItems = useMemo(() => {
     const normalized = search.toLowerCase();
@@ -332,7 +339,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
   }
 
   async function confirmReservation() {
-    if (!reservationItem) return;
+    if (!reservationItem || isReserving) return;
 
     const clientName = reservationForm.clientName.trim();
     const clientPhone = normalizePhoneInput(reservationForm.clientPhone);
@@ -371,108 +378,18 @@ export default function InventoryClient({ initialItems, initialPayments, initial
 
     const item = reservationItem;
     const plan = reservationPlan;
-    const nextItem = {
-      ...item,
-      status: sendToCostureira ? "Costureira" as InventoryItem["status"] : "Alugado" as InventoryItem["status"],
-      location: sendToCostureira ? "Costura" : "Retirado",
-      stock: Math.max(0, item.stock - 1),
-      action: "Ver Pedido",
-    };
-
-    const basePrice = item.price ?? 0;
-    const estimate = plan === "Diário" ? basePrice : Math.round(basePrice * 7 * 0.7 * 100) / 100;
-
+    setIsReserving(true);
     try {
-      const tailorPromise = sendToCostureira
-        ? fetch("/api/tailor-orders", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              inventoryId: item.id,
-              assignedTo: assignedTailorId,
-              adjustmentType: adjustmentType.trim(),
-              description: adjustmentDescription.trim(),
-              measurements: adjustmentMeasurements.trim(),
-              status: "Novo",
-              notes: "",
-            }),
-          })
-        : Promise.resolve({ ok: true } as Response);
-
-      const [inventoryRes, paymentRes, devolucaoRes, tailorRes] = await Promise.all([
-        fetch(`/api/inventory/${item.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(nextItem),
-        }),
-        fetch("/api/payments", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            itemId: item.id,
-            itemTitle: item.title,
-            plan,
-            amount: estimate,
-            entryAmount,
-            paidAmount: 0,
-            status: "Pendente",
-            clientName,
-            clientPhone,
-            clientEmail,
-          }),
-        }),
-        fetch("/api/devolucao", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            client: clientName,
-            itemId: item.id,
-            item: item.title,
-            dueDate: plan === "Diário" ? "Hoje" : "Em 7 dias",
-            status: "Aguardando",
-            penalty: "-",
-            action: "Confirmar",
-            amountPaid: estimate,
-            damageFee: 0,
-            laundryStatus: "Pendente",
-          }),
-        }),
-        tailorPromise,
-      ]);
-
-      const failedResponse = [inventoryRes, paymentRes, devolucaoRes, tailorRes].find((res) => !res.ok);
-      if (failedResponse) {
-        let errorText = "Erro inesperado";
-        try {
-          const bodyText = await failedResponse.text();
-          if (bodyText) {
-            const parsed = JSON.parse(bodyText);
-            errorText = parsed?.message || bodyText;
-          }
-        } catch {
-        }
-        throw new Error(`Falha ao confirmar reserva no backend. ${failedResponse.status}: ${errorText}`);
-      }
-
-      const updated = await inventoryRes.json();
-      setItems((prev) => prev.map((existing) => (existing.id === updated.id ? updated : existing)));
-      setPayments((prev) => [
-        ...prev,
-        {
-          id: `PAY-${Date.now()}`,
-          itemId: item.id,
-          itemTitle: item.title,
-          plan,
-          amount: estimate,
-          entryAmount,
-          paidAmount: 0,
-          status: "Pendente",
-          clientName,
-          clientPhone,
-          clientEmail,
-          createdAt: new Date().toISOString(),
-        },
-      ]);
+      const response = await fetch('/api/reservations', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId: item.id, plan, clientName, clientPhone, clientEmail, entryAmount,
+          sendToCostureira, assignedTo: assignedTailorId, adjustmentType: adjustmentType.trim(),
+          description: adjustmentDescription.trim(), measurements: adjustmentMeasurements.trim() }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Falha ao confirmar reserva.');
+      setItems(prev => prev.map(existing => existing.id === result.inventory.id ? result.inventory : existing));
+      setPayments(prev => [...prev, result.payment]);
       setReservationForm({ clientName: "", clientPhone: "", clientEmail: "", entryAmount: 50 });
       setMessage(`Reserva confirmada para ${clientName}.` + (sendToCostureira ? " Ajuste enviado para costureira." : ""));
       setReservationItem(null);
@@ -483,34 +400,16 @@ export default function InventoryClient({ initialItems, initialPayments, initial
     } catch (error) {
       console.error(error);
       setMessage(error instanceof Error ? error.message : "Erro ao confirmar reserva. Tente novamente.");
-    }
+    } finally { setIsReserving(false); }
   }
 
   return (
     <AuthGuard>
-      <div className="flex min-h-screen overflow-hidden bg-[#F3F5F8] font-sans">
+      <div className="staff-workspace flex min-h-screen overflow-hidden bg-[#F3F5F8] font-sans">
         <Sidebar active="Inventário" />
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10">
-          <header className="mb-8 rounded-[32px] bg-[#17182b] p-8 shadow-[0_30px_90px_rgba(23,24,43,0.14)] text-white">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <nav className="text-sm text-slate-200/80 mb-3">Menu &gt; Inventário</nav>
-                <h1 className="text-4xl sm:text-5xl font-serif font-semibold flex items-center gap-3">
-                  <FiBriefcase className="text-[var(--suit-gold)] text-3xl" />
-                  Inventário
-                </h1>
-                <p className="text-base text-slate-200/80 mt-2 max-w-2xl">Gerencie e rastreie localizações de seus trajes com visual limpo e foco em dados rápidos.</p>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <button className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-sm text-white transition hover:bg-white/15">Exportar</button>
-                <button onClick={() => setShowForm((prev) => !prev)} className="inline-flex items-center justify-center rounded-2xl bg-[#17182b] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 ring-1 ring-white/10 transition hover:bg-slate-900">
-                  Adicionar Traje
-                </button>
-              </div>
-            </div>
-          </header>
+          <StaffHeader eyebrow="Acervo da alfaiataria" title="Inventário" description="Consulte os trajes, acompanhe a localização e inicie um novo atendimento."><Link className="customer-outline" href="/operacoes">Planejamento e relatórios</Link><button onClick={() => setShowForm(prev => !prev)} className="customer-button" aria-expanded={showForm}>{showForm?'Fechar cadastro':'Adicionar traje'}</button></StaffHeader>
 
           {message ? (
             <div className="mb-6 rounded-3xl border border-orange-200 bg-orange-50 px-6 py-4 text-sm text-orange-800 shadow-sm">{message}</div>
@@ -523,39 +422,39 @@ export default function InventoryClient({ initialItems, initialPayments, initial
                 <input
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Título"
+                  aria-label="Título" placeholder="Título"
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 focus:outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
                 />
                 <input
                   value={formData.subtitle}
                   onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
-                  placeholder="Subtítulo"
+                  aria-label="Subtítulo" placeholder="Subtítulo"
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 focus:outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
                 />
                 <input
                   type="number"
                   value={formData.size}
                   onChange={(e) => setFormData({ ...formData, size: Number(e.target.value) })}
-                  placeholder="Tamanho"
+                  aria-label="Tamanho" placeholder="Tamanho"
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 focus:outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
                 />
                 <input
                   value={formData.color}
                   onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                  placeholder="Cor"
+                  aria-label="Cor" placeholder="Cor"
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 focus:outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
                 />
                 <input
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Localização"
+                  aria-label="Localização" placeholder="Localização"
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 focus:outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
                 />
                 <input
                   type="number"
                   value={formData.stock}
                   onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })}
-                  placeholder="Estoque"
+                  aria-label="Estoque" placeholder="Estoque"
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 focus:outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
                 />
                 <select
@@ -605,7 +504,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
                   <input
                     value={formData.image}
                     onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                    placeholder="URL da imagem ou deixe a foto enviada acima"
+                    aria-label="URL da imagem ou deixe a foto enviada acima" placeholder="URL da imagem ou deixe a foto enviada acima"
                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700 focus:outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
                   />
                 </div>
@@ -637,7 +536,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por ID ou nome"
+                  aria-label="Buscar por ID ou nome" placeholder="Buscar por ID ou nome"
                   className="w-full border border-slate-200 bg-slate-50 text-slate-700 placeholder-slate-400 rounded-2xl px-4 py-3 focus:outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
                 />
               </div>
@@ -683,14 +582,14 @@ export default function InventoryClient({ initialItems, initialPayments, initial
       </div>
 
       {reservationItem && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+        <StaffDialog label="Nova reserva" onClose={() => setReservationItem(null)}>
           <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-[32px] border border-slate-200 bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Nova reserva</p>
                 <h3 className="mt-2 text-2xl font-semibold text-[#17182b]">{reservationItem.title}</h3>
               </div>
-              <button onClick={() => setReservationItem(null)} className="rounded-full bg-slate-100 p-2 text-slate-600 transition hover:bg-slate-200">
+              <button aria-label="Fechar reserva" onClick={() => setReservationItem(null)} className="rounded-full bg-slate-100 p-2 text-slate-600 transition hover:bg-slate-200">
                 <FiX className="text-lg" />
               </button>
             </div>
@@ -704,7 +603,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
                   required
                   maxLength={64}
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
-                  placeholder="Ex.: João da Silva"
+                  aria-label="Ex.: João da Silva" placeholder="Ex.: João da Silva"
                 />
               </label>
               <label className="block text-sm font-medium text-slate-600">
@@ -719,7 +618,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
                   pattern="\(\d{2}\)\s\d{5}-\d{4}"
                   maxLength={15}
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
-                  placeholder="(11) 99999-9999"
+                  aria-label="(11) 99999-9999" placeholder="(11) 99999-9999"
                 />
               </label>
               <label className="block text-sm font-medium text-slate-600 sm:col-span-2">
@@ -732,7 +631,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
                   required
                   maxLength={70}
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
-                  placeholder="cliente@email.com"
+                  aria-label="cliente@email.com" placeholder="cliente@email.com"
                 />
               </label>
               <label className="block text-sm font-medium text-slate-600 sm:col-span-2">
@@ -746,7 +645,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
                   onChange={(e) => setReservationForm({ ...reservationForm, entryAmount: Number(e.target.value) })}
                   required
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
-                  placeholder="50 a 100"
+                  aria-label="50 a 100" placeholder="50 a 100"
                 />
               </label>
             </div>
@@ -788,7 +687,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
                     <input
                       value={adjustmentType}
                       onChange={(e) => setAdjustmentType(e.target.value)}
-                      placeholder="Ex.: barra, cintura, ombro"
+                      aria-label="Ex.: barra, cintura, ombro" placeholder="Ex.: barra, cintura, ombro"
                       className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
                     />
                   </label>
@@ -798,7 +697,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
                     <textarea
                       value={adjustmentDescription}
                       onChange={(e) => setAdjustmentDescription(e.target.value)}
-                      placeholder="Descreva o ajuste desejado"
+                      aria-label="Descreva o ajuste desejado" placeholder="Descreva o ajuste desejado"
                       rows={3}
                       className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
                     />
@@ -809,7 +708,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
                     <textarea
                       value={adjustmentMeasurements}
                       onChange={(e) => setAdjustmentMeasurements(e.target.value)}
-                      placeholder="Medidas do cliente (ex.: cintura, quadril, ombro, etc.)"
+                      aria-label="Medidas do cliente (ex.: cintura, quadril, ombro, etc.)" placeholder="Medidas do cliente (ex.: cintura, quadril, ombro, etc.)"
                       rows={3}
                       className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 outline-none focus:border-[#17182b] focus:ring-2 focus:ring-[#17182b]/20"
                     />
@@ -827,14 +726,14 @@ export default function InventoryClient({ initialItems, initialPayments, initial
 
             <div className="sticky bottom-0 mt-6 flex flex-col-reverse gap-3 border-t border-slate-200 bg-white pt-4 sm:flex-row sm:justify-end">
               <button onClick={() => setReservationItem(null)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">Cancelar</button>
-              <button onClick={confirmReservation} className="rounded-2xl bg-[#17182b] px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-900">Confirmar reserva</button>
+              <button disabled={isReserving} onClick={confirmReservation} className="rounded-2xl bg-[#17182b] px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-900">Confirmar reserva</button>
             </div>
           </div>
-        </div>
+        </StaffDialog>
         )}
 
         {viewedItem && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+          <StaffDialog label="Detalhes do pedido" onClose={() => { setViewedItem(null); setViewedPayment(null); }}>
             <div className="w-full max-w-xl rounded-[32px] border border-slate-200 bg-white p-6 shadow-2xl">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -880,7 +779,7 @@ export default function InventoryClient({ initialItems, initialPayments, initial
                 </div>
               </div>
             </div>
-          </div>
+          </StaffDialog>
         )}
       </AuthGuard>
     );

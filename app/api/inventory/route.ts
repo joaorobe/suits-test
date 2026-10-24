@@ -1,3 +1,8 @@
+import { api, readBody } from "../../../lib/api";
+import { requireUser } from '../../../lib/auth';
+import { query } from '../../../lib/db';
+import { validateInventory } from '../../../lib/inventory';
+import { randomUUID } from 'node:crypto';
 import { NextResponse } from "next/server";
 import { addInventory, getInventory } from "../../../lib/data";
 import type { InventoryItem } from "../../../lib/types";
@@ -11,21 +16,27 @@ const NO_STORE_HEADERS = {
   Expires: "0",
 };
 
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   const url = new URL(request.url);
   const search = url.searchParams.get("search") || undefined;
   const items = await getInventory(search);
+  const user = await requireUser();
+  if (user.role === 'costureira') {
+    const assigned = await query('SELECT DISTINCT inventory_id FROM tailor_orders WHERE assigned_to = $1', [user.id]);
+    const ids = new Set(assigned.rows.map(row => row.inventory_id));
+    return NextResponse.json(items.filter(item => ids.has(item.id)), { headers: NO_STORE_HEADERS });
+  }
   return NextResponse.json(items, { headers: NO_STORE_HEADERS });
 }
 
-export async function POST(request: Request) {
-  const payload = (await request.json()) as Partial<InventoryItem>;
+async function handlePOST(request: Request) {
+  const payload = (await readBody(request)) as Partial<InventoryItem>;
   if (!payload.title || !payload.subtitle || !payload.size || !payload.color) {
     return NextResponse.json({ message: "Dados do inventário incompletos." }, { status: 400 });
   }
 
   const item: InventoryItem = {
-    id: payload.id ?? `INV-${Date.now()}`,
+    id: `INV-${randomUUID()}`,
     title: payload.title,
     subtitle: payload.subtitle,
     sku: payload.sku ?? `SKU-${Date.now()}`,
@@ -40,6 +51,11 @@ export async function POST(request: Request) {
     price: payload.price,
   };
 
+  validateInventory(Object.fromEntries(Object.entries(item).filter(([key]) => key !== "id")));
   const created = await addInventory(item);
   return NextResponse.json(created, { status: 201 });
 }
+
+export const GET = api(["admin", "costureira"], handleGET);
+
+export const POST = api("admin", handlePOST);
