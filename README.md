@@ -45,6 +45,16 @@ O arquivo `seeds.sql` contém dados de exemplo para desenvolvimento, com senha `
 
 Para cadastrar ou atualizar uma costureira, defina `USER_CPF`, `USER_NAME` e `USER_PASSWORD` no ambiente e execute `node create-costureira-user.js`.
 
+## Publicar na Vercel com Neon
+
+1. Crie um projeto PostgreSQL no Neon e importe este repositório na Vercel. Use a URL de conexão PostgreSQL com SSL; o endpoint com pooler é apropriado para a aplicação serverless.
+2. Em **Vercel → Project → Settings → Environment Variables**, configure `DATABASE_URL` com a URL do Neon e `APP_ORIGIN` com a origem pública canônica, sem barra final, por exemplo `https://seu-projeto.vercel.app`. Habilite as variáveis para **Production**. Não coloque credenciais no código nem no Git.
+3. Faça o deploy. As migrações são aplicadas automaticamente na primeira conexão ao banco. O projeto não cria contas administrativas ou dados de demonstração nesse processo.
+4. Antes de liberar o site, crie o primeiro administrador. Em uma máquina confiável, coloque temporariamente `DATABASE_URL`, `ADMIN_CPF`, `ADMIN_NAME` e `ADMIN_PASSWORD` em `.env.local` (arquivo ignorado pelo Git) e execute `npm run admin:init`. A senha deve ter ao menos 12 caracteres. O comando aplica as migrações e só cria a conta se ainda não houver administrador; não substitui nem altera contas existentes. Apague as credenciais temporárias de `.env.local` ao terminar.
+5. Teste o login administrativo e os fluxos necessários. Compartilhe o domínio canônico configurado em `APP_ORIGIN`. Para usar domínio próprio, atualize `APP_ORIGIN` para essa origem e faça novo deploy. Use uma base separada para previews e testes; não conecte previews a dados reais.
+
+Não use as contas e senhas do modo de demonstração em produção. Rotacione qualquer senha ou URL de banco que tenha sido compartilhada ou publicada.
+
 ## Funcionalidades
 
 - **Administrador:** inventário, atendimento presencial, solicitações online, acompanhamento da costura, pagamentos, devoluções, medidas, calendário, manutenção, alertas e relatórios.
@@ -90,6 +100,7 @@ O PWA mantém recursos estáticos e a página offline em cache. Páginas autenti
 | `npm run build` | Compilação de produção |
 | `npm run start` | Servidor de produção |
 | `npm run db:init` | Inicialização e migrações do banco |
+| `npm run admin:init` | Criação segura do primeiro administrador |
 | `npm run lint` | Verificação de código |
 | `npm run typecheck` | Verificação de tipos |
 | `npm test` | Testes automatizados |
