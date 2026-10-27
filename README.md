@@ -55,6 +55,8 @@ Para cadastrar ou atualizar uma costureira, defina `USER_CPF`, `USER_NAME` e `US
 
 Não use as contas e senhas do modo de demonstração em produção. Rotacione qualquer senha ou URL de banco que tenha sido compartilhada ou publicada.
 
+Para popular intencionalmente um banco Neon de apresentação com contas e dados fictícios, configure a URL atual do Neon em `.env.local` e execute `npm run seed:presentation -- --confirm-demo-data`. O comando só aceita conexão TLS local com o banco `neondb` em um host Neon; a rotina é idempotente e nunca é executada pela Vercel durante o deploy. As contas de demonstração usam a senha `Suits123!`; qualquer pessoa com o link poderá entrar como administrador. Use exclusivamente para apresentação com dados fictícios e apague essas contas ao encerrar a demonstração.
+
 ## Funcionalidades
 
 - **Administrador:** inventário, atendimento presencial, solicitações online, acompanhamento da costura, pagamentos, devoluções, medidas, calendário, manutenção, alertas e relatórios.
@@ -101,6 +103,7 @@ O PWA mantém recursos estáticos e a página offline em cache. Páginas autenti
 | `npm run start` | Servidor de produção |
 | `npm run db:init` | Inicialização e migrações do banco |
 | `npm run admin:init` | Criação segura do primeiro administrador |
+| `npm run seed:presentation -- --confirm-demo-data` | Carregamento intencional de dados fictícios no Neon |
 | `npm run lint` | Verificação de código |
 | `npm run typecheck` | Verificação de tipos |
 | `npm test` | Testes automatizados |

@@ -13,10 +13,22 @@ function day(offset: number) {
 }
 
 async function seed() {
-  if (process.env.SUITS_DEMO !== '1' || process.env.NODE_ENV === 'production') {
-    throw new Error('Execute este script somente pelo comando npm run dev:demo.');
+  if (process.env.SUITS_PRESENTATION_SEED === '1') {
+    const connection = new URL(process.env.DATABASE_URL ?? '');
+    if (process.env.NODE_ENV === 'production'
+      || !connection.hostname.endsWith('.neon.tech')
+      || connection.pathname !== '/neondb'
+      || connection.searchParams.get('sslmode') !== 'require'
+      || !connection.password
+      || connection.password.includes('TROQUE_PELA_NOVA_SENHA')) {
+      throw new Error('A preparação de apresentação exige execução local e conexão TLS ao banco Neon neondb.');
+    }
+  } else {
+    if (process.env.SUITS_DEMO !== '1' || process.env.NODE_ENV === 'production') {
+      throw new Error('Execute este script somente pelo comando npm run dev:demo.');
+    }
+    demoEnvironment(process.env.DATABASE_URL ?? '');
   }
-  demoEnvironment(process.env.DATABASE_URL ?? '');
   const password = await hashPassword(DEMO_PASSWORD);
   await withTransaction(async client => {
     await client.query('CREATE TABLE IF NOT EXISTS demo_seed_versions(version text PRIMARY KEY)');
