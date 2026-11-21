@@ -2,7 +2,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { FiArrowLeft, FiArrowRight, FiArrowUpRight, FiCalendar, FiCheck, FiCompass, FiGrid, FiRefreshCw } from 'react-icons/fi';
+import { FiArrowLeft, FiArrowRight, FiArrowUpRight, FiCalendar, FiCheck, FiCompass, FiGrid, FiRefreshCw, FiSliders } from 'react-icons/fi';
 import type { CatalogItem } from '../../../lib/customer-types';
 import { currency, date, Empty } from './shared';
 
@@ -43,12 +43,14 @@ export default function Catalog({ initialDate, initialView = 'welcome' }: { init
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [view, setView] = useState<'welcome' | 'quiz' | 'results' | 'catalog'>(initialView);
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<QuizAnswers>({ event: null, style: null, color: null, budget: null });
   const details = useRef<HTMLElement>(null);
   const selected = items.find(item => item.id === selectedId);
   const checked = draft.start === filters.start && draft.end === filters.end;
+  const activeFilterCount = [draft.q, draft.category, draft.size, draft.min, draft.max, draft.available, draft.start !== initialDate || draft.end !== initialDate].filter(Boolean).length;
   const colorChoices = [...new Set(items.map(item => item.color.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
   useEffect(() => {
@@ -85,6 +87,7 @@ export default function Catalog({ initialDate, initialView = 'welcome' }: { init
     setLoading(true);
     setSent(null);
     setFilters({ ...draft });
+    setFiltersOpen(false);
   }
 
   function updateAnswer(key: keyof QuizAnswers, value: string) {
@@ -224,10 +227,12 @@ export default function Catalog({ initialDate, initialView = 'welcome' }: { init
         <header className="customer-catalog-heading">
           <div><p className="customer-eyebrow">{view === 'results' ? 'Sua seleção personalizada' : 'Explore a alfaiataria'}</p><h1 className="customer-title">{view === 'results' ? 'Trajes que combinam com você.' : 'Elegância para cada ocasião.'}</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">{view === 'results' ? 'As sugestões estão organizadas pela compatibilidade com suas respostas. A disponibilidade considera as datas escolhidas.' : 'Consulte as peças, compare opções e confira a disponibilidade para suas datas.'}</p></div>
           <div className="flex flex-wrap gap-3">
+            <button type="button" className="customer-outline" aria-expanded={filtersOpen} aria-controls="customer-catalog-filters" onClick={() => setFiltersOpen(open => !open)}><FiSliders aria-hidden="true"/> Filtros{activeFilterCount > 0 && <span className="customer-filter-count">{activeFilterCount}</span>}</button>
             {view === 'results' ? <><button type="button" className="customer-outline" onClick={restartQuiz}><FiRefreshCw aria-hidden="true"/> Refazer quiz</button><button type="button" className="customer-link" onClick={browseCatalog}>Ver catálogo completo</button></> : <button type="button" className="customer-outline" onClick={() => setView('welcome')}><FiCompass aria-hidden="true"/> Fazer o quiz</button>}
           </div>
         </header>
 
+        <div id="customer-catalog-filters" hidden={!filtersOpen}>
         <form onSubmit={search} className="customer-card customer-catalog-filters" aria-label="Filtros do catálogo">
           <label className="customer-label sm:col-span-2">Buscar traje<input className="customer-input" value={draft.q} onChange={event => update('q', event.target.value)} placeholder="Nome ou descrição" maxLength={100}/></label>
           <label className="customer-label">Retirada<input className="customer-input" type="date" required min={initialDate} value={draft.start} onChange={event => update('start', event.target.value)}/></label>
@@ -239,6 +244,7 @@ export default function Catalog({ initialDate, initialView = 'welcome' }: { init
           <label className="customer-catalog-available"><input type="checkbox" checked={draft.available === 'true'} onChange={event => update('available', event.target.checked ? 'true' : '')}/> Mostrar apenas disponíveis no período</label>
           <button className="customer-button customer-filter-submit" disabled={loading}>{loading ? 'Consultando...' : 'Consultar disponibilidade'}</button>
         </form>
+        </div>
 
         {error && <p role="alert" className="customer-alert">{error}</p>}
         {sent && <div role="status" className="customer-card border-emerald-500 p-6"><h2 className="font-serif text-2xl">Solicitação enviada!</h2><p className="mt-2 text-sm text-slate-500">A alfaiataria vai analisar seu pedido. Nenhuma cobrança foi realizada.</p><Link href={'/cliente/reservas/' + sent} className="customer-link mt-4 inline-block">Acompanhar solicitação →</Link></div>}
