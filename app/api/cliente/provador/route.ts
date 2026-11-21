@@ -4,7 +4,7 @@ import { getInventoryById } from '../../../../lib/data';
 import { api } from '../../../../lib/api';
 import { withTransaction } from '../../../../lib/db';
 import { HttpError, requireValue } from '../../../../lib/rules';
-import { decodeTryOnImageDataUrl, detectTryOnImageMime, type TryOnImageMime } from '../../../../lib/virtual-try-on';
+import { decodeTryOnImageDataUrl, detectTryOnImageMime, isTryOnProviderUrl, type TryOnImageMime } from '../../../../lib/virtual-try-on';
 import { readFile, stat } from 'node:fs/promises';
 import { isAbsolute, relative, resolve } from 'node:path';
 
@@ -13,6 +13,7 @@ export const maxDuration = 60;
 
 const MAX_REQUEST_BYTES = 4 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+const MAX_RESULT_BYTES = 4 * 1024 * 1024;
 const supportedMimeTypes: TryOnImageMime[] = ['image/jpeg', 'image/png', 'image/webp'];
 const publicDirectory = resolve(process.cwd(), 'public');
 
@@ -28,25 +29,43 @@ function validateImage(bytes: Buffer, declaredMime?: string): { bytes: Buffer; m
   return { bytes, mime };
 }
 
-async function readLimited(response: Response): Promise<Buffer> {
-  const length = Number(response.headers.get('content-length'));
-  requireValue(!Number.isFinite(length) || length <= MAX_IMAGE_BYTES, 'A imagem do traje excede o limite permitido.');
-  const body = response.body;
-  if (!body) throw new HttpError(502, 'Não foi possível carregar a imagem do traje.');
-  const reader = body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > MAX_IMAGE_BYTES) {
-      await reader.cancel();
-      throw new HttpError(413, 'A imagem do traje excede o limite permitido.');
-    }
-    chunks.push(value);
+async function loadTryOnResult(outputUrl: string): Promise<{ bytes: Buffer; mime: TryOnImageMime }> {
+  let url: URL;
+  try {
+    url = new URL(outputUrl);
+  } catch {
+    throw new HttpError(502, 'O provador retornou um endereço de imagem inválido.');
   }
-  return Buffer.concat(chunks);
+  if (!isTryOnProviderUrl(url)) throw new HttpError(502, 'O provador retornou um endereço de imagem inválido.');
+
+  const signal = AbortSignal.timeout(15000);
+  for (let redirects = 0; redirects <= 3; redirects++) {
+    let response: Response;
+    try {
+      response = await fetch(url, { cache: 'no-store', redirect: 'manual', signal });
+    } catch {
+      throw new HttpError(502, 'Não foi possível carregar a prévia gerada. Tente novamente.');
+    }
+
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (!location || redirects === 3) throw new HttpError(502, 'Não foi possível carregar a prévia gerada. Tente novamente.');
+      try {
+        url = new URL(location, url);
+      } catch {
+        throw new HttpError(502, 'O provador retornou um endereço de imagem inválido.');
+      }
+      if (!isTryOnProviderUrl(url)) throw new HttpError(502, 'O provador retornou um endereço de imagem inválido.');
+      continue;
+    }
+
+    if (!response.ok) throw new HttpError(502, 'Não foi possível carregar a prévia gerada. Tente novamente.');
+    const bytes = await readLimited(response, MAX_RESULT_BYTES, 'A prévia gerada excede o limite permitido.');
+    const mime = detectTryOnImageMime(bytes);
+    if (!mime || !supportedMimeTypes.includes(mime)) throw new HttpError(502, 'O provador não retornou uma imagem válida.');
+    return { bytes, mime };
+  }
+  throw new HttpError(502, 'Não foi possível carregar a prévia gerada. Tente novamente.');
 }
 
 async function loadGarmentImage(image: string, origin: string): Promise<{ bytes: Buffer; mime: TryOnImageMime }> {
@@ -88,6 +107,27 @@ async function loadGarmentImage(image: string, origin: string): Promise<{ bytes:
   }
   if (!response.ok) throw new HttpError(502, 'Não foi possível carregar a imagem do traje. Tente novamente.');
   return validateImage(await readLimited(response), response.headers.get('content-type')?.split(';')[0].trim());
+}
+
+async function readLimited(response: Response, maxBytes = MAX_IMAGE_BYTES, message = 'A imagem do traje excede o limite permitido.'): Promise<Buffer> {
+  const length = Number(response.headers.get('content-length'));
+  requireValue(!Number.isFinite(length) || length <= maxBytes, message);
+  const body = response.body;
+  if (!body) throw new HttpError(502, 'Não foi possível carregar a imagem.');
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new HttpError(413, message);
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks);
 }
 
 export const POST = api('cliente', async (request, _context, user) => {
@@ -144,10 +184,14 @@ export const POST = api('cliente', async (request, _context, user) => {
       : firstOutput && typeof firstOutput === 'object' && 'url' in firstOutput ? firstOutput.url
         : null;
     if (typeof outputUrl !== 'string') throw new Error('O modelo não retornou um arquivo de imagem.');
-    const parsedOutputUrl = new URL(outputUrl);
-    requireValue(parsedOutputUrl.protocol === 'https:' && ['hf.space', 'hf.co', 'huggingface.co'].some(host => parsedOutputUrl.hostname === host || parsedOutputUrl.hostname.endsWith('.' + host)), 'O provador retornou um endereço de imagem inválido.');
-
-    return NextResponse.json({ imageUrl: parsedOutputUrl.toString() });
+    const output = await loadTryOnResult(outputUrl);
+    return new NextResponse(new Uint8Array(output.bytes), {
+      headers: {
+        'Content-Type': output.mime,
+        'Content-Disposition': 'inline; filename="previa-virtual"',
+        'X-Content-Type-Options': 'nosniff',
+      },
+    });
   } catch (error) {
     if (error instanceof HttpError) throw error;
     console.error('Virtual try-on provider failed:', error instanceof Error ? error.message : 'Erro desconhecido do provedor.');

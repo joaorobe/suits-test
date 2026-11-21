@@ -97,6 +97,11 @@ export default function Catalog({ initialDate, initialView = 'welcome', showTryO
     return () => URL.revokeObjectURL(tryOnPreview);
   }, [tryOnPreview]);
 
+  useEffect(() => {
+    if (!tryOnResult) return;
+    return () => URL.revokeObjectURL(tryOnResult);
+  }, [tryOnResult]);
+
   function update(key: keyof Filters, value: string) {
     setDraft(previous => ({ ...previous, [key]: value }));
     setSent(null);
@@ -203,13 +208,14 @@ export default function Catalog({ initialDate, initialView = 'welcome', showTryO
       form.set('personImage', tryOnFile);
       form.set('consent', 'true');
       const response = await fetch('/api/cliente/provador', { method: 'POST', body: form });
-      const result: unknown = await response.json().catch(() => null);
       if (!response.ok) {
+        const result: unknown = await response.json().catch(() => null);
         const message = result && typeof result === 'object' && 'message' in result && typeof result.message === 'string' ? result.message : 'O provador está ocupado ou indisponível. Tente novamente mais tarde.';
         throw new Error(message);
       }
-      if (!result || typeof result !== 'object' || !('imageUrl' in result) || typeof result.imageUrl !== 'string') throw new Error('O provador não retornou uma imagem válida.');
-      setTryOnResult(result.imageUrl);
+      const image = await response.blob();
+      if (!image.size || !['image/jpeg', 'image/png', 'image/webp'].includes(image.type)) throw new Error('O provador não retornou uma imagem válida.');
+      setTryOnResult(URL.createObjectURL(image));
     } catch (error) {
       setTryOnError(error instanceof Error ? error.message : 'Confira sua conexão e tente novamente.');
     } finally {
@@ -370,14 +376,14 @@ export default function Catalog({ initialDate, initialView = 'welcome', showTryO
               </label>
               <p className="mt-2 text-xs leading-5 text-slate-500">JPG, PNG ou WEBP. A imagem é reduzida no seu dispositivo antes do envio.</p>
               {tryOnPreview && <div className="customer-tryon-person-preview"><Image src={tryOnPreview} alt="Prévia da sua foto para o provador" fill unoptimized sizes="(max-width: 640px) 100vw, 320px" className="object-contain"/></div>}
-              <p className="customer-tryon-privacy">Demonstração acadêmica não comercial. Ao continuar, sua foto e a imagem do traje serão enviadas ao Hugging Face IDM-VTON para gerar esta prévia. O Suits não salva a foto nem o resultado; o provedor aplica sua própria política de processamento e retenção e o link gerado pode expirar. Use apenas uma foto sua.</p>
+              <p className="customer-tryon-privacy">Demonstração acadêmica não comercial. Ao continuar, sua foto e a imagem do traje serão enviadas ao Hugging Face IDM-VTON para gerar esta prévia. O Suits não persiste a foto nem o resultado; o provedor aplica sua própria política de processamento e retenção. A prévia fica temporariamente disponível nesta tela. Use apenas uma foto sua.</p>
               <label className="customer-tryon-consent"><input type="checkbox" checked={tryOnConsent} disabled={tryOnLoading} onChange={event => setTryOnConsent(event.target.checked)}/><span>Autorizo o envio temporário da minha foto ao serviço externo para esta geração.</span></label>
               {tryOnError && <p role="alert" className="customer-alert mt-4">{tryOnError}</p>}
               <button type="button" className="customer-button mt-5 w-full" disabled={!tryOnFile || !tryOnConsent || tryOnLoading} onClick={() => void generateTryOn()}>{tryOnLoading ? <><span className="customer-spinner" aria-hidden="true"/> Preparando sua prévia...</> : <><FiCamera aria-hidden="true"/> Gerar prova virtual</>}</button>
               <p className="mt-3 text-center text-xs leading-5 text-slate-500">Resultado ilustrativo, não garante caimento, cor ou tamanho. O modelo prioriza a parte superior do traje.</p>
             </div>
             <div className="customer-tryon-result" aria-live="polite">
-              {tryOnResult ? <><p className="customer-eyebrow">Sua prévia</p><div className="customer-tryon-result-image"><Image src={tryOnResult} alt={'Prévia virtual com ' + selected.title} fill unoptimized sizes="(max-width: 768px) 100vw, 480px" referrerPolicy="no-referrer" className="object-contain"/></div><p className="mt-3 text-xs leading-5 text-slate-500">A imagem vem do provedor e pode expirar. Não feche a janela se quiser salvá-la no seu dispositivo.</p><a className="customer-link mt-3 inline-block" href={tryOnResult} target="_blank" rel="noreferrer">Abrir ou salvar a imagem temporária</a></>
+              {tryOnResult ? <><p className="customer-eyebrow">Sua prévia</p><div className="customer-tryon-result-image"><Image src={tryOnResult} alt={'Prévia virtual com ' + selected.title} fill unoptimized sizes="(max-width: 768px) 100vw, 480px" className="object-contain"/></div><p className="mt-3 text-xs leading-5 text-slate-500">A imagem fica disponível temporariamente nesta tela e não é salva pelo Suits.</p><a className="customer-link mt-3 inline-block" href={tryOnResult} download="previa-virtual">Salvar prévia no dispositivo</a></>
                 : tryOnLoading ? <div className="customer-tryon-loading"><span className="customer-spinner customer-spinner-large" aria-hidden="true"/><p className="mt-4 font-serif text-xl">Criando sua prévia</p><p className="mt-2 text-center text-sm text-slate-500">O provador pode levar até um minuto. Mantenha esta tela aberta.</p></div>
                   : <div className="customer-tryon-empty"><FiCamera aria-hidden="true"/><p>Escolha uma foto para começar</p></div>}
             </div>

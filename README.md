@@ -85,7 +85,7 @@ Em **Medidas**, cada avaliação registra data e profissional, preservando as an
 
 ## Provador Virtual
 
-Na área do cliente, o Provador Virtual pode ser acessado pela página inicial ou pelos detalhes de um traje. A pessoa seleciona uma foto própria e precisa autorizar explicitamente o envio ao Space `yisol/IDM-VTON`, no Hugging Face. A aplicação reduz a foto no dispositivo, aceita arquivos JPG/PNG/WEBP de até 3 MB, limita as gerações a uma por minuto por cliente e não salva a foto nem o resultado no banco. O provedor recebe as imagens e aplica sua própria política de processamento e retenção; o link gerado pode expirar. O recurso exige conexão com a internet, pode levar até 60 segundos e pode ficar indisponível quando o Space estiver ocupado.
+Na área do cliente, o Provador Virtual pode ser acessado pela página inicial ou pelos detalhes de um traje. A pessoa seleciona uma foto própria e precisa autorizar explicitamente o envio ao Space `yisol/IDM-VTON`, no Hugging Face. A aplicação reduz a foto no dispositivo, aceita arquivos JPG/PNG/WEBP de até 3 MB, limita as gerações a uma por minuto por cliente e não persiste a foto nem o resultado. O provedor recebe as imagens e aplica sua própria política de processamento e retenção; o resultado é retransmitido para exibição temporária na tela, sem ser guardado pelo Suits. O recurso exige conexão com a internet, pode levar até 60 segundos e pode ficar indisponível quando o Space estiver ocupado.
 
 **Licença:** o Space `yisol/IDM-VTON` declara licença CC-BY-NC-SA-4.0, de uso não comercial. Habilite esta integração somente em demonstrações acadêmicas não comerciais; para oferecer o provador em uma operação comercial, obtenha autorização ou substitua o modelo por um provedor com licença comercial compatível.
 
