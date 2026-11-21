@@ -16,6 +16,12 @@ test('PostgreSQL: migration, rollback, concurrent reservations, receipts and ses
     await admin.query(`CREATE TABLE ${schema}.users(id text PRIMARY KEY, cpf text NOT NULL UNIQUE, password text NOT NULL, name text NOT NULL, role text NOT NULL DEFAULT 'admin')`);
     await admin.query(`INSERT INTO ${schema}.users VALUES ('admin','12345678910','senha123','Administrador','admin')`);
     await query('SELECT 1');
+    assert.equal((await query("SELECT to_regclass('virtual_try_on_limits') AS table")).rows[0].table, 'virtual_try_on_limits');
+    assert.equal((await query("SELECT 1 FROM schema_migrations WHERE version='004_virtual_try_on'")).rowCount, 1);
+    const firstTryOn = await query("INSERT INTO virtual_try_on_limits(user_id,last_requested_at) VALUES('admin',now()) ON CONFLICT(user_id) DO UPDATE SET last_requested_at=now() WHERE virtual_try_on_limits.last_requested_at <= now()-interval '1 minute' RETURNING user_id");
+    const repeatedTryOn = await query("INSERT INTO virtual_try_on_limits(user_id,last_requested_at) VALUES('admin',now()) ON CONFLICT(user_id) DO UPDATE SET last_requested_at=now() WHERE virtual_try_on_limits.last_requested_at <= now()-interval '1 minute' RETURNING user_id");
+    assert.equal(firstTryOn.rowCount, 1);
+    assert.equal(repeatedTryOn.rowCount, 0);
     const { authenticateUser } = await import('../lib/data');
     const { reserve } = await import('../lib/rentals');
     const { recordPayment } = await import('../lib/payments');

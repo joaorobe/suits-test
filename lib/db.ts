@@ -2,6 +2,7 @@ import { migrateEnhancements } from './enhancements-migration';
 import { Pool, type PoolClient } from "pg";
 import { hashPassword } from "./passwords.mjs";
 import { migrateCustomers } from './customer-migration';
+import { migrateVirtualTryOn } from './virtual-try-on-migration';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -185,6 +186,7 @@ async function initDatabase() {
     }
     await migrateCustomers(client);
     await migrateEnhancements(client);
+    await migrateVirtualTryOn(client);
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");

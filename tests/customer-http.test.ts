@@ -18,6 +18,8 @@ test('HTTP customer portal: registration, server authorization, ownership, appro
   assert.equal((await call('/cliente')).status,307);
   const login=await call('/api/auth','POST',{cpf:'12345678910',password:'validation-password'});assert.equal(login.status,200);const admin=cookie(login);
   assert.equal((await call('/api/cliente','GET',undefined,admin)).status,403);
+  assert.equal((await call('/api/cliente/provador','POST')).status,401);
+  assert.equal((await call('/api/cliente/provador','POST',{},admin)).status,403);
   const itemResponse=await call('/api/inventory','POST',{title:'Traje Portal',subtitle:'Terno completo',size:42,color:'Azul',price:290,priceCategory:'Terno novo'},admin);assert.equal(itemResponse.status,201);const item=await itemResponse.json();
   const start=new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});const next=new Date(start+'T12:00:00Z');next.setUTCDate(next.getUTCDate()+1);const tomorrow=next.toISOString().slice(0,10);
   const catalog=await call('/api/cliente/catalogo?start='+start+'&end='+start+'&size=42&min=200&max=300&available=true','GET',undefined,first);assert.equal(catalog.status,200,await catalog.clone().text());assert.ok((await catalog.json()).items.some((entry:{id:string})=>entry.id===item.id));
