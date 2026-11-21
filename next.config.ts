@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    agentUpgrade: "security",
+  },
   agentRules: false,
   distDir: process.env.SUITS_VALIDATION === '1' ? '.next-validation' : process.env.SUITS_DEMO === '1' ? '.next-demo' : '.next',
   images: {
