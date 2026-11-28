@@ -33,7 +33,7 @@ test('virtual try-on result URLs allow only HTTPS Hugging Face hosts', () => {
 });
 
 test('presentation demo includes valid mannequin and result images', async () => {
-  for (const filename of ['smoking-peak-mannequin.png', 'smoking-peak-result.png']) {
+  for (const filename of ['smoking-peak-person.png', 'smoking-peak-mannequin.png', 'smoking-peak-result.png']) {
     const image = await readFile(new URL('../public/demo-tryon/' + filename, import.meta.url));
     assert.equal(detectTryOnImageMime(image), 'image/png');
   }
