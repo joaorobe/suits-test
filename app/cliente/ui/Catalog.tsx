@@ -57,6 +57,7 @@ export default function Catalog({ initialDate, initialView = 'welcome', showTryO
   const details = useRef<HTMLElement>(null);
   const tryOnDialog = useRef<HTMLDialogElement>(null);
   const selected = items.find(item => item.id === selectedId);
+  const isPresentationMock = selected?.id === 'demo-history';
   const checked = draft.start === filters.start && draft.end === filters.end;
   const activeFilterCount = [draft.q, draft.category, draft.size, draft.min, draft.max, draft.available, draft.start !== initialDate || draft.end !== initialDate].filter(Boolean).length;
   const colorChoices = [...new Set(items.map(item => item.color.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
@@ -99,6 +100,7 @@ export default function Catalog({ initialDate, initialView = 'welcome', showTryO
 
   useEffect(() => {
     if (!tryOnResult) return;
+    if (!tryOnResult.startsWith('blob:')) return;
     return () => URL.revokeObjectURL(tryOnResult);
   }, [tryOnResult]);
 
@@ -198,11 +200,17 @@ export default function Catalog({ initialDate, initialView = 'welcome', showTryO
   }
 
   async function generateTryOn() {
-    if (!selected || !tryOnFile || !tryOnConsent || tryOnLoading) return;
+    if (!selected || (!isPresentationMock && !tryOnFile) || !tryOnConsent || tryOnLoading) return;
     setTryOnLoading(true);
     setTryOnError('');
     setTryOnResult(null);
     try {
+      if (isPresentationMock) {
+        await new Promise(resolve => window.setTimeout(resolve, 5000));
+        setTryOnResult('/demo-tryon/smoking-peak-result.png');
+        return;
+      }
+      if (!tryOnFile) return;
       const form = new FormData();
       form.set('itemId', selected.id);
       form.set('personImage', tryOnFile);
@@ -370,20 +378,26 @@ export default function Catalog({ initialDate, initialView = 'welcome', showTryO
           <div className="customer-tryon-modal-header"><div><p className="customer-eyebrow">Uma prévia para imaginar</p><h2 id="tryon-title" className="mt-1 font-serif text-2xl">Provador Virtual</h2><p className="mt-1 text-sm text-slate-500">{selected.title}</p></div><button type="button" className="customer-icon customer-tryon-close" aria-label="Fechar provador virtual" disabled={tryOnLoading} onClick={() => setTryOnOpen(false)}><FiX aria-hidden="true"/></button></div>
           <div className="customer-tryon-modal-body">
             <div className="customer-tryon-form">
-              <p className="text-sm leading-6 text-slate-600">Envie uma foto sua, de frente, com boa iluminação e usando uma calça que combine com o traje. Vamos gerar uma prévia virtual da parte de cima.</p>
-              <label className="customer-label mt-5">Sua foto
-                <input className="customer-input customer-tryon-file" type="file" accept="image/jpeg,image/png,image/webp" disabled={tryOnLoading} onChange={event => { void chooseTryOnPhoto(event.target.files?.[0]); event.currentTarget.value = ''; }}/>
-              </label>
-              <p className="mt-2 text-xs leading-5 text-slate-500">JPG, PNG ou WEBP. A imagem é reduzida no seu dispositivo antes do envio.</p>
-              {tryOnPreview && <div className="customer-tryon-person-preview"><Image src={tryOnPreview} alt="Prévia da sua foto para o provador" fill unoptimized sizes="(max-width: 640px) 100vw, 320px" className="object-contain"/></div>}
-              <p className="customer-tryon-privacy">Demonstração acadêmica não comercial. Ao continuar, sua foto e a imagem do traje serão enviadas ao Hugging Face IDM-VTON para gerar esta prévia. O Suits não persiste a foto nem o resultado; o provedor aplica sua própria política de processamento e retenção. A prévia fica temporariamente disponível nesta tela. Use apenas uma foto sua.</p>
-              <label className="customer-tryon-consent"><input type="checkbox" checked={tryOnConsent} disabled={tryOnLoading} onChange={event => setTryOnConsent(event.target.checked)}/><span>Autorizo o envio temporário da minha foto ao serviço externo para esta geração.</span></label>
+              {isPresentationMock ? <>
+                <p className="text-sm leading-6 text-slate-600">Simulação para apresentação do Smoking Peak. A prévia foi preparada antes e aparecerá após uma breve animação de processamento.</p>
+                <p className="customer-tryon-privacy">Esta é uma imagem ilustrativa pré-gerada: não é uma prova feita com sua foto, não analisa seu corpo e não envia imagens a um serviço externo.</p>
+                <label className="customer-tryon-consent"><input type="checkbox" checked={tryOnConsent} disabled={tryOnLoading} onChange={event => setTryOnConsent(event.target.checked)}/><span>Entendi que este resultado é uma demonstração fixa e não representa uma prova personalizada.</span></label>
+              </> : <>
+                <p className="text-sm leading-6 text-slate-600">Envie uma foto sua, de frente, com boa iluminação e usando uma calça que combine com o traje. Vamos gerar uma prévia virtual da parte de cima.</p>
+                <label className="customer-label mt-5">Sua foto
+                  <input className="customer-input customer-tryon-file" type="file" accept="image/jpeg,image/png,image/webp" disabled={tryOnLoading} onChange={event => { void chooseTryOnPhoto(event.target.files?.[0]); event.currentTarget.value = ''; }}/>
+                </label>
+                <p className="mt-2 text-xs leading-5 text-slate-500">JPG, PNG ou WEBP. A imagem é reduzida no seu dispositivo antes do envio.</p>
+                {tryOnPreview && <div className="customer-tryon-person-preview"><Image src={tryOnPreview} alt="Prévia da sua foto para o provador" fill unoptimized sizes="(max-width: 640px) 100vw, 320px" className="object-contain"/></div>}
+                <p className="customer-tryon-privacy">Demonstração acadêmica não comercial. Ao continuar, sua foto e a imagem do traje serão enviadas ao Hugging Face IDM-VTON para gerar esta prévia. O Suits não persiste a foto nem o resultado; o provedor aplica sua própria política de processamento e retenção. A prévia fica temporariamente disponível nesta tela. Use apenas uma foto sua.</p>
+                <label className="customer-tryon-consent"><input type="checkbox" checked={tryOnConsent} disabled={tryOnLoading} onChange={event => setTryOnConsent(event.target.checked)}/><span>Autorizo o envio temporário da minha foto ao serviço externo para esta geração.</span></label>
+              </>}
               {tryOnError && <p role="alert" className="customer-alert mt-4">{tryOnError}</p>}
-              <button type="button" className="customer-button mt-5 w-full" disabled={!tryOnFile || !tryOnConsent || tryOnLoading} onClick={() => void generateTryOn()}>{tryOnLoading ? <><span className="customer-spinner" aria-hidden="true"/> Preparando sua prévia...</> : <><FiCamera aria-hidden="true"/> Gerar prova virtual</>}</button>
-              <p className="mt-3 text-center text-xs leading-5 text-slate-500">Resultado ilustrativo, não garante caimento, cor ou tamanho. O modelo prioriza a parte superior do traje.</p>
+              <button type="button" className="customer-button mt-5 w-full" disabled={(!isPresentationMock && !tryOnFile) || !tryOnConsent || tryOnLoading} onClick={() => void generateTryOn()}>{tryOnLoading ? <><span className="customer-spinner" aria-hidden="true"/> {isPresentationMock ? 'Preparando demonstração...' : 'Preparando sua prévia...'}</> : <><FiCamera aria-hidden="true"/> {isPresentationMock ? 'Iniciar demonstração' : 'Gerar prova virtual'}</>}</button>
+              <p className="mt-3 text-center text-xs leading-5 text-slate-500">{isPresentationMock ? 'A prévia aparece após alguns segundos, como demonstração do fluxo.' : 'Resultado ilustrativo, não garante caimento, cor ou tamanho. O modelo prioriza a parte superior do traje.'}</p>
             </div>
             <div className="customer-tryon-result" aria-live="polite">
-              {tryOnResult ? <><p className="customer-eyebrow">Sua prévia</p><div className="customer-tryon-result-image"><Image src={tryOnResult} alt={'Prévia virtual com ' + selected.title} fill unoptimized sizes="(max-width: 768px) 100vw, 480px" className="object-contain"/></div><p className="mt-3 text-xs leading-5 text-slate-500">A imagem fica disponível temporariamente nesta tela e não é salva pelo Suits.</p><a className="customer-link mt-3 inline-block" href={tryOnResult} download="previa-virtual">Salvar prévia no dispositivo</a></>
+              {tryOnResult ? <><p className="customer-eyebrow">{isPresentationMock ? 'Demonstração pronta' : 'Sua prévia'}</p><div className="customer-tryon-result-image"><Image src={tryOnResult} alt={'Prévia virtual com ' + selected.title} fill unoptimized sizes="(max-width: 768px) 100vw, 480px" className="object-contain"/></div><p className="mt-3 text-xs leading-5 text-slate-500">{isPresentationMock ? 'Imagem ilustrativa pré-gerada; não foi criada a partir de uma foto enviada.' : 'A imagem fica disponível temporariamente nesta tela e não é salva pelo Suits.'}</p><a className="customer-link mt-3 inline-block" href={tryOnResult} download="previa-virtual">Salvar prévia no dispositivo</a></>
                 : tryOnLoading ? <div className="customer-tryon-loading"><span className="customer-spinner customer-spinner-large" aria-hidden="true"/><p className="mt-4 font-serif text-xl">Criando sua prévia</p><p className="mt-2 text-center text-sm text-slate-500">O provador pode levar até um minuto. Mantenha esta tela aberta.</p></div>
                   : <div className="customer-tryon-empty"><FiCamera aria-hidden="true"/><p>Escolha uma foto para começar</p></div>}
             </div>

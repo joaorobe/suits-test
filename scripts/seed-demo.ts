@@ -51,13 +51,13 @@ async function seed() {
       ['demo-green', 'Terno verde', 'Paletó e calça com acabamento especial', 38, 'Verde', 'Terno moderno', 350],
       ['demo-upcoming', 'Traje para próximo evento', 'Exemplo de reserva futura confirmada', 42, 'Azul', 'Terno moderno', 290],
       ['demo-adjustment', 'Traje em ajuste', 'Exemplo de atendimento em preparação', 42, 'Preto', 'Terno clássico', 290],
-      ['demo-history', 'Traje do último evento', 'Exemplo de aluguel já devolvido', 40, 'Cinza', 'Terno clássico', 290],
+      ['demo-history', 'Smoking Peak', 'Exemplo de aluguel já devolvido', 40, 'Bege', 'Smoking', 290],
       ['demo-pending', 'Traje solicitado online', 'Exemplo de solicitação aguardando análise', 44, 'Preto', 'Terno clássico', 290],
     ];
     for (const [id, title, subtitle, size, color, category, price] of garments) {
       await client.query(`INSERT INTO inventory(id,title,subtitle,sku,status,size,color,location,stock,image,action,price_category,price)
-        VALUES ($1,$2,$3,$1,'Disponível',$4,$5,'Estoque Central',1,'/terno1.jpg','Reservar Traje',$6,$7)`,
-      [id, title, subtitle, size, color, category, price]);
+        VALUES ($1,$2,$3,$1,'Disponível',$4,$5,'Estoque Central',1,$6,'Reservar Traje',$7,$8)`,
+      [id, title, subtitle, size, color, id === 'demo-history' ? '/demo-tryon/smoking-peak-mannequin.png' : '/terno1.jpg', category, price]);
     }
     const upcomingItem = (await client.query("SELECT * FROM inventory WHERE id='demo-upcoming'")).rows[0];
     const upcoming = await createRental(client, upcomingItem, person,

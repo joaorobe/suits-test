@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { decodeTryOnImageDataUrl, detectTryOnImageMime, isTryOnProviderUrl } from '../lib/virtual-try-on';
 
 const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0x00]);
@@ -29,4 +30,11 @@ test('virtual try-on result URLs allow only HTTPS Hugging Face hosts', () => {
   assert.equal(isTryOnProviderUrl(new URL('https://huggingface.co.attacker.example/preview.png')), false);
   assert.equal(isTryOnProviderUrl(new URL('https://attacker.example/preview.png')), false);
   assert.equal(isTryOnProviderUrl(new URL('https://user@huggingface.co/preview.png')), false);
+});
+
+test('presentation demo includes valid mannequin and result images', async () => {
+  for (const filename of ['smoking-peak-mannequin.png', 'smoking-peak-result.png']) {
+    const image = await readFile(new URL('../public/demo-tryon/' + filename, import.meta.url));
+    assert.equal(detectTryOnImageMime(image), 'image/png');
+  }
 });
