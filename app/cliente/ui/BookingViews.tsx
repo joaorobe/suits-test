@@ -55,6 +55,7 @@ export default function BookingViews({ initial, mode, selectedId }: { initial: C
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<BookingFilter>('todas');
   const [search, setSearch] = useState('');
+  const [historySearch, setHistorySearch] = useState('');
 
   async function mutate(url: string, method: string, body?: unknown) {
     setSaving(true);
@@ -73,6 +74,23 @@ export default function BookingViews({ initial, mode, selectedId }: { initial: C
 
   const title = mode === 'historico' ? 'Seu histórico de aluguéis' : mode === 'avisos' ? 'Seus avisos' : mode === 'detalhe' ? 'Cada detalhe, acompanhado.' : 'Minhas reservas';
   const bookings = data.bookings.filter(item => mode === 'detalhe' ? item.id === selectedId : mode === 'historico' ? item.returned : true);
+  const historyBookings = useMemo(() => [...data.bookings]
+    .filter(item => item.returned)
+    .sort((a, b) => b.end.localeCompare(a.end)), [data.bookings]);
+  const visibleHistory = useMemo(() => {
+    const term = historySearch.trim().toLocaleLowerCase('pt-BR');
+    return historyBookings.filter(item => !term
+      || item.itemTitle.toLocaleLowerCase('pt-BR').includes(term)
+      || item.id.toLocaleLowerCase('pt-BR').includes(term)
+      || item.requestId?.toLocaleLowerCase('pt-BR').includes(term)
+      || item.rentalId?.toLocaleLowerCase('pt-BR').includes(term));
+  }, [historyBookings, historySearch]);
+  const historyTotals = historyBookings.reduce((totals, item) => ({
+    amount: totals.amount + (item.amount ?? 0),
+    paid: totals.paid + item.paid,
+    knownAmounts: totals.knownAmounts + (item.amount == null ? 0 : 1),
+  }), { amount: 0, paid: 0, knownAmounts: 0 });
+  const latestReturned = historyBookings[0];
   const activeBookings = data.bookings.filter(item => !item.returned && !isCancelled(item));
   const nextBooking = activeBookings.find(item => item.stage !== 'pending') || activeBookings[0];
   const counts = {
@@ -147,13 +165,59 @@ export default function BookingViews({ initial, mode, selectedId }: { initial: C
           <div className="customer-booking-help"><p className="customer-eyebrow">Precisa de ajuda?</p><p>Fale com a alfaiataria se precisar ajustar datas ou tirar dúvidas sobre sua reserva.</p><Link href="/cliente/avisos">Ver avisos e atualizações <FiArrowRight aria-hidden="true"/></Link></div>
         </aside>
       </div>
+    </> : mode === 'historico' ? <>
+      <header className="customer-booking-heading">
+        <div><p className="customer-eyebrow">Área do cliente</p><h1 className="customer-title">{title}</h1><p className="mt-3 text-sm text-slate-500">Uma visão completa dos trajes que já fizeram parte dos seus momentos.</p></div>
+        <Link href="/cliente/catalogo" className="customer-button">Encontrar outro traje <FiArrowRight aria-hidden="true"/></Link>
+      </header>
+      <section className="customer-history-summary" aria-label="Resumo do histórico">
+        <article className="customer-booking-stat"><span className="customer-booking-stat-icon"><FiCheckCircle aria-hidden="true"/></span><span><strong>{historyBookings.length}</strong><small>{historyBookings.length === 1 ? 'locação concluída' : 'locações concluídas'}</small></span></article>
+        <article className="customer-booking-stat is-confirmed"><span className="customer-booking-stat-icon"><FiCalendar aria-hidden="true"/></span><span><strong>{historyTotals.knownAmounts ? currency(historyTotals.amount) : '—'}</strong><small>{historyTotals.knownAmounts} {historyTotals.knownAmounts === 1 ? 'valor registrado' : 'valores registrados'}</small></span></article>
+        <article className="customer-booking-stat is-progress"><span className="customer-booking-stat-icon"><FiCheckCircle aria-hidden="true"/></span><span><strong>{currency(historyTotals.paid)}</strong><small>total recebido</small></span></article>
+      </section>
+      <div className="customer-booking-layout">
+        <section className="customer-booking-list" aria-label="Locações concluídas">
+          <div className="customer-history-toolbar">
+            <div><h2>Seus trajes alugados</h2><p>{historyBookings.length} {historyBookings.length === 1 ? 'registro' : 'registros'} concluídos</p></div>
+            <label className="customer-booking-search"><FiSearch aria-hidden="true"/><span className="sr-only">Buscar por traje ou código</span><input value={historySearch} onChange={event => setHistorySearch(event.target.value)} placeholder="Buscar traje ou código"/></label>
+          </div>
+          {!visibleHistory.length
+            ? <Empty title={historyBookings.length ? 'Nenhum aluguel encontrado' : 'Seu histórico está começando'}><p>{historyBookings.length ? 'Tente buscar pelo nome do traje ou pelo código da locação.' : 'Depois de devolver seu primeiro traje, o registro completo aparecerá aqui.'}</p>{!historyBookings.length && <Link href="/cliente/catalogo" className="customer-link mt-3 inline-block">Explorar catálogo →</Link>}</Empty>
+            : visibleHistory.map(item => <article key={item.id} className="customer-booking-card customer-history-card">
+              <Image src={item.image || '/terno1.jpg'} alt={item.itemTitle} width={176} height={216} unoptimized className="customer-booking-image"/>
+              <div className="customer-booking-main">
+                <div className="customer-booking-title-row"><div><p className="customer-eyebrow">{item.rentalId ? 'Locação ' + item.rentalId.slice(0, 8).toUpperCase() : item.requestId ? 'Solicitação ' + item.requestId.slice(0, 8).toUpperCase() : 'Histórico SUITS'}</p><h2>{item.itemTitle}</h2></div><span className="customer-booking-status is-complete"><FiCheckCircle aria-hidden="true"/> Devolvido</span></div>
+                <p className="customer-booking-dates"><FiCalendar aria-hidden="true"/>{date(item.start)} <span aria-hidden="true">—</span> {date(item.end)}</p>
+                <BookingProgress item={item}/>
+                <div className="customer-booking-bottom">
+                  <div className="customer-booking-values"><p>Valor<strong>{item.amount == null ? 'Não informado' : currency(item.amount)}</strong></p><p>Recebido<strong>{currency(item.paid)}</strong></p></div>
+                  <Link href={'/cliente/reservas/' + item.id} className="customer-button customer-booking-action">Ver registro completo <FiArrowRight aria-hidden="true"/></Link>
+                </div>
+              </div>
+            </article>)}
+        </section>
+        <aside className="customer-booking-aside">
+          <div className="customer-booking-next customer-history-feature">
+            <span className="customer-booking-next-icon"><FiCheckCircle aria-hidden="true"/></span>
+            <p className="customer-eyebrow">{latestReturned ? 'Sua última locação' : 'Novos momentos'}</p>
+            {latestReturned ? <>
+              <h2>{latestReturned.itemTitle}</h2>
+              <p>Devolvido em {date(latestReturned.end)}. Você pode consultar os valores e todos os detalhes deste aluguel quando quiser.</p>
+              <Link href={'/cliente/reservas/' + latestReturned.id} className="customer-booking-aside-link">Ver detalhes <FiArrowRight aria-hidden="true"/></Link>
+            </> : <>
+              <h2>Um traje para cada ocasião</h2><p>Descubra as opções da alfaiataria e acompanhe suas locações por aqui.</p><Link href="/cliente/catalogo" className="customer-booking-aside-link">Explorar catálogo <FiArrowRight aria-hidden="true"/></Link>
+            </>}
+          </div>
+          <div className="customer-booking-help"><p className="customer-eyebrow">Precisa de ajuda?</p><p>Se tiver dúvidas sobre um aluguel anterior, consulte o registro completo ou fale com a alfaiataria.</p><Link href="/cliente/avisos">Ver avisos e atualizações <FiArrowRight aria-hidden="true"/></Link></div>
+        </aside>
+      </div>
     </> : <>
-      <header><p className="customer-eyebrow">Área do cliente</p><h1 className="customer-title">{title}</h1><p className="mt-3 text-sm text-slate-500">{mode === 'avisos' ? 'Atualizações da alfaiataria e lembretes de devolução.' : mode === 'historico' ? 'Os trajes devolvidos e os valores registrados em cada aluguel.' : 'Confirmação, preparação, retirada e devolução em um só lugar.'}</p></header>
+      <header><p className="customer-eyebrow">Área do cliente</p><h1 className="customer-title">{title}</h1><p className="mt-3 text-sm text-slate-500">{mode === 'avisos' ? 'Atualizações da alfaiataria e lembretes de devolução.' : 'Confirmação, preparação, retirada e devolução em um só lugar.'}</p></header>
       {message && <p role="alert" className="customer-alert">{message}</p>}
       {mode === 'avisos' ? <>
         {!data.notifications.length ? <Empty title="Tudo em dia"><p>Quando houver novidades sobre suas reservas, elas aparecerão aqui.</p></Empty> : data.notifications.map(item => <article key={item.id} className={'customer-card p-6 ' + (!item.read ? 'border-l-4 border-l-amber-500' : '')}><p className="text-xs text-slate-500">{new Date(item.at).toLocaleString('pt-BR')}{!item.read ? ' · Não lido' : ''}</p><h2 className="mt-2 font-serif text-xl">{item.title}</h2><p className="mt-3 text-sm text-slate-600">{item.message}</p><div className="mt-4 flex flex-wrap gap-5">{item.requestId && <Link href={'/cliente/reservas/' + item.requestId} className="customer-link text-sm">Ver reserva</Link>}{!item.read && <button className="customer-link text-sm" disabled={saving} onClick={() => mutate('/api/cliente/notificacoes', 'PATCH', { id: item.id })}>Marcar como lido</button>}</div></article>)}<p className="text-xs text-slate-500">Os avisos ficam disponíveis aqui. Notificações push serão oferecidas futuramente, mediante seu consentimento.</p>
       </> : <>
-        {!bookings.length ? <Empty title={mode === 'historico' ? 'Você ainda não tem aluguéis concluídos' : 'Nenhuma reserva por aqui'}><Link href="/cliente/catalogo" className="customer-link">Conhecer o catálogo →</Link></Empty> : bookings.map(item => <article key={item.id} className="customer-card p-5 sm:p-7"><div className="flex items-start gap-4"><Image src={item.image || '/terno1.jpg'} alt={item.itemTitle} width={90} height={110} unoptimized className="h-24 w-20 rounded-xl object-cover"/><div className="min-w-0 flex-1"><p className="customer-badge">{item.status}</p><h2 className="mt-3 font-serif text-xl sm:text-2xl">{item.itemTitle}</h2><p className="mt-2 text-sm text-slate-500">{date(item.start)} a {date(item.end)}</p></div></div><div className="mt-5 flex flex-wrap gap-x-8 gap-y-2 text-sm"><p>Valor: <strong>{currency(item.amount)}</strong></p>{item.rentalId && <p>Recebido: <strong>{currency(item.paid)}</strong></p>}</div>{item.note && <p className="customer-alert mt-4">{item.note}</p>}{mode === 'detalhe' ? <><h3 className="mt-7 font-semibold">Linha do tempo</h3><ol className="mt-5 space-y-5 border-l border-slate-300 pl-5">{item.events.map((event, index) => <li key={index} className="relative"><span aria-hidden="true" className="absolute -left-[26px] top-1 h-3 w-3 rounded-full bg-amber-600"/><p className="text-sm font-medium">{event.message}</p><p className="mt-1 text-xs text-slate-500">{new Date(event.at).toLocaleString('pt-BR')}</p></li>)}</ol><p className="mt-6 text-xs text-slate-500">As etapas são registradas conforme o atendimento real. Aguarde a liberação de retirada antes de buscar o traje.</p>{item.stage === 'pending' && <button className="customer-outline mt-5" disabled={saving} onClick={() => { if (window.confirm('Cancelar esta solicitação e liberar as datas?')) void mutate('/api/cliente/reservas/' + item.requestId, 'DELETE'); }}>Cancelar solicitação</button>}<Link href="/cliente/reservas" className="customer-link mt-5 block text-sm">← Voltar às reservas</Link></> : <Link href={'/cliente/reservas/' + item.id} className="customer-link mt-5 inline-block text-sm">Ver detalhes e acompanhamento →</Link>}</article>)}
+        {!bookings.length ? <Empty title="Nenhuma reserva por aqui"><Link href="/cliente/catalogo" className="customer-link">Conhecer o catálogo →</Link></Empty> : bookings.map(item => <article key={item.id} className="customer-card p-5 sm:p-7"><div className="flex items-start gap-4"><Image src={item.image || '/terno1.jpg'} alt={item.itemTitle} width={90} height={110} unoptimized className="h-24 w-20 rounded-xl object-cover"/><div className="min-w-0 flex-1"><p className="customer-badge">{item.status}</p><h2 className="mt-3 font-serif text-xl sm:text-2xl">{item.itemTitle}</h2><p className="mt-2 text-sm text-slate-500">{date(item.start)} a {date(item.end)}</p></div></div><div className="mt-5 flex flex-wrap gap-x-8 gap-y-2 text-sm"><p>Valor: <strong>{currency(item.amount)}</strong></p>{item.rentalId && <p>Recebido: <strong>{currency(item.paid)}</strong></p>}</div>{item.note && <p className="customer-alert mt-4">{item.note}</p>}{mode === 'detalhe' ? <><h3 className="mt-7 font-semibold">Linha do tempo</h3><ol className="mt-5 space-y-5 border-l border-slate-300 pl-5">{item.events.map((event, index) => <li key={index} className="relative"><span aria-hidden="true" className="absolute -left-[26px] top-1 h-3 w-3 rounded-full bg-amber-600"/><p className="text-sm font-medium">{event.message}</p><p className="mt-1 text-xs text-slate-500">{new Date(event.at).toLocaleString('pt-BR')}</p></li>)}</ol><p className="mt-6 text-xs text-slate-500">As etapas são registradas conforme o atendimento real. Aguarde a liberação de retirada antes de buscar o traje.</p>{item.stage === 'pending' && <button className="customer-outline mt-5" disabled={saving} onClick={() => { if (window.confirm('Cancelar esta solicitação e liberar as datas?')) void mutate('/api/cliente/reservas/' + item.requestId, 'DELETE'); }}>Cancelar solicitação</button>}<Link href="/cliente/reservas" className="customer-link mt-5 block text-sm">← Voltar às reservas</Link></> : <Link href={'/cliente/reservas/' + item.id} className="customer-link mt-5 inline-block text-sm">Ver detalhes e acompanhamento →</Link>}</article>)}
       </>}
     </>}
     <RefreshStatus error={error} busy={busy} refresh={refresh}/>

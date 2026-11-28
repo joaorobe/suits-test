@@ -68,6 +68,9 @@ body:has(.customer-portal) .app-floating-logo,body:has(.customer-register) .app-
 .customer-score-neutral { color: #475569; background: rgb(248 250 252 / .96); }
 .customer-booking-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5rem; }
 .customer-booking-summary { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); overflow: hidden; border: 1px solid #e8e4dc; border-radius: 20px; background: var(--suit-surface); }
+.customer-history-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); overflow: hidden; border: 1px solid #e8e4dc; border-radius: 20px; background: var(--suit-surface); }
+.customer-history-summary .customer-booking-stat + .customer-booking-stat { border-left: 1px solid #e8e4dc; }
+.customer-history-summary .customer-booking-stat strong { overflow-wrap: anywhere; font-size: clamp(1rem,2.4vw,1.45rem); }
 .customer-booking-stat { display: flex; min-width: 0; align-items: center; gap: .8rem; padding: 1rem 1.2rem; }
 .customer-booking-stat + .customer-booking-stat { border-left: 1px solid #e8e4dc; }
 .customer-booking-stat-icon { display: grid; width: 2.5rem; height: 2.5rem; flex: 0 0 2.5rem; place-items: center; border-radius: 50%; color: #805d0b; background: #fbf5e6; font-size: 1.1rem; }
@@ -80,6 +83,13 @@ body:has(.customer-portal) .app-floating-logo,body:has(.customer-register) .app-
 .customer-booking-layout { display: grid; grid-template-columns: minmax(0,1fr) 17rem; align-items: start; gap: 1.25rem; }
 .customer-booking-list { display: grid; min-width: 0; gap: .85rem; }
 .customer-booking-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.customer-history-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.customer-history-toolbar h2 { font-family: Georgia,serif; font-size: 1.25rem; }
+.customer-history-toolbar p { margin-top: .2rem; color: #64748b; font-size: .75rem; }
+.customer-history-card .customer-booking-status { gap: .35rem; }
+.customer-history-card .customer-booking-status svg { width: .85rem; height: .85rem; }
+.customer-history-card .customer-booking-progress li.is-complete { color: #624810; }
+.customer-history-card .customer-booking-bottom { margin-top: .1rem; }
 .customer-booking-filters { display: flex; max-width: 100%; gap: .45rem; overflow-x: auto; padding: .2rem; scrollbar-width: thin; }
 .customer-booking-filter { min-height: 40px; flex: 0 0 auto; border: 1px solid #e2e8f0; border-radius: 999px; padding: .55rem .9rem; color: #475569; background: var(--suit-surface); font-size: .75rem; cursor: pointer; }
 .customer-booking-filter.is-selected { border-color: #17182b; color: white; background: #17182b; }
@@ -160,13 +170,13 @@ body:has(.customer-portal) .app-floating-logo,body:has(.customer-register) .app-
 .customer-spinner-large { width: 2.5rem; height: 2.5rem; border-width: 3px; color: #9a761b; }
 @keyframes customer-spin { to { transform: rotate(360deg); } }
 .theme-dark .customer-tryon-promo,.theme-dark .customer-tryon-intro { border-color: #594b29; background: linear-gradient(110deg,#1d1b14,#111827); }
-.theme-dark .customer-booking-summary,.theme-dark .customer-booking-help { border-color: #334155; }
-.theme-dark .customer-booking-stat + .customer-booking-stat,.theme-dark .customer-booking-bottom { border-color: #334155; }
+.theme-dark .customer-booking-summary,.theme-dark .customer-history-summary,.theme-dark .customer-booking-help { border-color: #334155; }
+.theme-dark .customer-booking-stat + .customer-booking-stat,.theme-dark .customer-history-summary .customer-booking-stat + .customer-booking-stat,.theme-dark .customer-booking-bottom { border-color: #334155; }
 .theme-dark .customer-booking-card { border-color: #334155; box-shadow: none; }
 .theme-dark .customer-booking-filter { border-color: #475569; color: #cbd5e1; }
 .theme-dark .customer-booking-filter.is-selected { border-color: #e3c56f; color: #17182b; background: #e3c56f; }
 .theme-dark .customer-booking-search { border-color: #475569; }
-.theme-dark .customer-booking-stat small,.theme-dark .customer-booking-dates,.theme-dark .customer-booking-values p,.theme-dark .customer-booking-note,.theme-dark .customer-booking-help > p:not(.customer-eyebrow) { color: #94a3b8; }
+.theme-dark .customer-booking-stat small,.theme-dark .customer-booking-dates,.theme-dark .customer-booking-values p,.theme-dark .customer-booking-note,.theme-dark .customer-booking-help > p:not(.customer-eyebrow),.theme-dark .customer-history-toolbar p { color: #94a3b8; }
 .theme-dark .customer-booking-progress li.is-complete,.theme-dark .customer-booking-progress li.is-active { color: #f5df9f; }
 .theme-dark .customer-booking-progress li::before { background: #475569; }
 .theme-dark .customer-booking-progress li.is-complete::before,.theme-dark .customer-booking-progress li.is-active::before { background: #c69a27; }
@@ -209,6 +219,9 @@ body:has(.customer-portal) .app-floating-logo,body:has(.customer-register) .app-
   .customer-booking-heading { align-items: flex-start; flex-direction: column; }
   .customer-booking-heading > .customer-button { width: 100%; }
   .customer-booking-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .customer-history-summary { grid-template-columns: minmax(0,1fr); }
+  .customer-history-summary .customer-booking-stat + .customer-booking-stat { border-top: 1px solid #e8e4dc; border-left: 0; }
+  .customer-history-toolbar { align-items: stretch; flex-direction: column; }
   .customer-booking-stat { padding: .8rem; }
   .customer-booking-stat:nth-child(3) { border-left: 0; border-top: 1px solid #e8e4dc; }
   .customer-booking-stat:nth-child(4) { border-top: 1px solid #e8e4dc; }
@@ -228,6 +241,7 @@ body:has(.customer-portal) .app-floating-logo,body:has(.customer-register) .app-
   .customer-booking-stat:nth-child(3),.theme-dark .customer-booking-stat:nth-child(3) { border-top-color: #334155; }
   .theme-dark .customer-booking-stat:nth-child(3) { border-top-color: #334155; }
   .theme-dark .customer-booking-stat:nth-child(4) { border-top-color: #334155; }
+  .theme-dark .customer-history-summary .customer-booking-stat + .customer-booking-stat { border-top-color: #334155; }
   .customer-tryon-promo { align-items: flex-start; flex-wrap: wrap; }
   .customer-tryon-promo .customer-button { width: 100%; }
   .customer-tryon-promo-note { margin-left: 4rem; }
