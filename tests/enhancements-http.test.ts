@@ -26,6 +26,9 @@ test('HTTP enhancements: backend permissions, tutorial persistence, planning and
  assert.equal((await call('/api/cliente/reservas','POST',{itemId:item.id,start:day(16),end:day(16)},customer)).status,409);
  const catalog=await(await call('/api/cliente/catalogo?'+new URLSearchParams({start:day(15),end:day(15),recommend:'true',event:'Casamento',color:'Preto',budget:'100'}),'GET',undefined,customer)).json();
  const entry=catalog.items.find((value:{id:string})=>value.id===item.id);assert.equal(entry.available,false);assert.equal(entry.recommendation.score,100);
+ const unconfigured=await call('/api/inventory','POST',{title:'Traje sem metadados',subtitle:'Social',size:42,color:'Preto',price:100},admin);assert.equal(unconfigured.status,201);const unconfiguredItem=await unconfigured.json();
+ const unconfiguredCatalog=await(await call('/api/cliente/catalogo?'+new URLSearchParams({start:day(15),end:day(15),recommend:'true',event:'Casamento',style:'Clássico',color:'Preto',budget:'100'}),'GET',undefined,customer)).json();
+ const unconfiguredEntry=unconfiguredCatalog.items.find((value:{id:string})=>value.id===unconfiguredItem.id);assert.equal(unconfiguredEntry.recommendation.score,100);
  const operations=await(await call('/api/admin/operations?start='+today+'&end='+day(30),'GET',undefined,admin)).json();assert.ok(operations.blocks.some((block:{itemId:string})=>block.itemId===item.id));assert.ok(operations.audit.length);
  const own=await(await call('/api/cliente','GET',undefined,customer)).json();
  assert.equal((await call('/api/measurements','POST',{clientId:own.profile.clientId,measurements:{chest:100}},tailor)).status,403);

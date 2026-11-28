@@ -336,6 +336,8 @@ export default function Catalog({ initialDate, initialView = 'welcome', showTryO
           </div>
         </header>
 
+        {view === 'results' && <p className="text-xs leading-5 text-slate-500">A compatibilidade considera cor, orçamento e características cadastradas pela alfaiataria. Quando algum dado não está informado, ele não reduz a pontuação.</p>}
+
         {showTryOnIntro && view === 'catalog' && <section className="customer-tryon-intro">
           <span className="customer-tryon-promo-icon"><FiCamera aria-hidden="true"/></span>
           <div><p className="customer-eyebrow">Novidade para você</p><h2 className="mt-1 font-serif text-xl sm:text-2xl">Experimente antes de escolher</h2><p className="mt-2 text-sm leading-6 text-slate-600">Abra os detalhes de um traje e use o Provador Virtual para ter uma prévia com sua foto.</p></div>

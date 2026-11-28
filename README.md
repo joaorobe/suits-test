@@ -77,7 +77,7 @@ As datas utilizam o fuso `America/Sao_Paulo`. O plano diário vence no mesmo dia
 
 ## Recomendações e medidas
 
-Em **Operações**, o administrador informa eventos, estilos e medidas reais de cada traje. No catálogo, o cliente pode ordenar as peças pela compatibilidade com suas preferências, orçamento, tamanho e medidas profissionais disponíveis.
+Em **Operações**, o administrador informa eventos, estilos e medidas reais de cada traje. No catálogo, o cliente pode ordenar as peças pela compatibilidade com suas preferências, orçamento, tamanho e medidas profissionais disponíveis. Critérios sem dados cadastrados não são tratados como incompatibilidade; valores um pouco acima do orçamento recebem compatibilidade parcial.
 
 Os pesos ficam em `lib/recommendations.ts`. A comparação corporal utiliza a avaliação mais recente e as medidas cadastradas do traje. Quando faltam medidas, os demais critérios continuam disponíveis. A recomendação não substitui a avaliação de caimento pela alfaiataria.
 

@@ -16,10 +16,13 @@ export function scoreGarment(item: CatalogItem, metadata: GarmentMetadata, prefe
     possible += weight; earned += weight * match;
     if (match > 0 && weight > 0) reasons.push(reason);
   };
-  if (preferences.event) add('event', metadata.events?.some(value => normalized(value) === normalized(preferences.event!)) ? 1 : 0, 'Indicado pela alfaiataria para este evento');
+  if (preferences.event && metadata.events?.length) add('event', metadata.events.some(value => normalized(value) === normalized(preferences.event!)) ? 1 : 0, 'Indicado pela alfaiataria para este evento');
   if (preferences.color) add('color', normalized(item.color) === normalized(preferences.color) ? 1 : 0, 'Cor da sua preferência');
-  if (preferences.style) add('style', metadata.styles?.some(value => normalized(value) === normalized(preferences.style!)) ? 1 : 0, 'Estilo da sua preferência');
-  if (preferences.budget != null) add('budget', item.estimate != null && item.estimate <= preferences.budget ? 1 : 0, 'Estimativa do período dentro do orçamento');
+  if (preferences.style && metadata.styles?.length) add('style', metadata.styles.some(value => normalized(value) === normalized(preferences.style!)) ? 1 : 0, 'Estilo da sua preferência');
+  if (preferences.budget != null && item.estimate != null) {
+    const match = item.estimate <= preferences.budget ? 1 : item.estimate > 0 ? Math.max(0, Math.min(1, preferences.budget / item.estimate)) : 0;
+    add('budget', match, match === 1 ? 'Estimativa do período dentro do orçamento' : 'Estimativa próxima ao orçamento escolhido');
+  }
   if (preferences.size != null) add('size', item.size === preferences.size ? 1 : 0, 'Tamanho solicitado');
   if (body && metadata.measurements) {
     const comparisons = ['chest', 'waist', 'hips'].filter(key => Number.isFinite(body[key]) && Number.isFinite(metadata.measurements![key]));

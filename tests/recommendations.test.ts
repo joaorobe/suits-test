@@ -7,8 +7,18 @@ const item: CatalogItem = { id: 'a', title: 'Traje', description: '', image: '',
 test('weighted recommendations explain matches using full period budget and normalized metadata', () => {
   const result = scoreGarment(item, { events: ['Formatura'], styles: ['Clássico'] }, { event: 'formatura', color: 'preto', style: 'classico', budget: 300, size: 42 }, null);
   assert.equal(result.score, 100); assert.equal(result.reasons.length, 5);
-  assert.equal(scoreGarment(item, {}, { budget: 200 }, null).score, 0);
-  assert.equal(scoreGarment({ ...item, estimate: null }, {}, { budget: 400 }, null).score, 0);
+  assert.equal(scoreGarment(item, {}, { budget: 200 }, null).score, 67);
+  assert.equal(scoreGarment({ ...item, estimate: null }, {}, { budget: 400 }, null).score, null);
+});
+test('unknown event and style metadata does not zero the quiz score', () => {
+  const result = scoreGarment(item, {}, { event: 'Casamento', style: 'Clássico', color: 'Preto', budget: 350 }, null);
+  assert.equal(result.score, 100);
+  assert.deepEqual(result.reasons, ['Cor da sua preferência', 'Estimativa do período dentro do orçamento']);
+});
+test('recommendations give partial budget compatibility instead of zero for near misses', () => {
+  const result = scoreGarment(item, {}, { event: 'Formatura', style: 'Slim', color: 'Azul', budget: 200 }, null);
+  assert.equal(result.score, 38);
+  assert.deepEqual(result.reasons, ['Estimativa próxima ao orçamento escolhido']);
 });
 test('missing measurements are not inferred from clothing size or penalized', () => {
   assert.equal(scoreGarment(item, {}, {}, null).score, null);
